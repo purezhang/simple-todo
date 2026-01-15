@@ -1,0 +1,37 @@
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.vcxproj.user
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+Build/
+[Bb]in/
+[Oo]bj/
+
+# .NET
+*.log
+*.dll
+*.pdb
+*.obj
+
+# SQLite
+*.db
+*.db-journal
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Temp
+*.tmp
+*.temp
+nul
+
+# PowerShell transcript
+*_transcript.txt
