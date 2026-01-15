@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(compile.bat)",
+      "Bash(\"D:\\\\MyDevTools\\\\Microsoft Visual Studio\\\\18\\\\Community\\\\VC\\\\Tools\\\\MSVC\\\\14.50.35717\\\\bin\\\\Hostx64\\\\x64\\\\cl.exe\" /EHsc /Od /Zi /MDd /std:c++17 /D_WIN32_WINNT=0x0601 /DUNICODE /D_UNICODE /utf-8 /I\"D:\\\\MyDevTools\\\\Microsoft Visual Studio\\\\18\\\\Community\\\\VC\\\\Tools\\\\MSVC\\\\14.50.35717\\\\atlmfc\\\\include\" /I\"third_party\\\\SQLite\" /I\"third_party\\\\WTL\" /I\"src\" src*.cpp third_partySQLitesqlite3.c /link /OUT:\"bin\\\\x64\\\\Debug\\\\SimpleTodo.exe\" user32.lib kernel32.lib gdi32.lib comctl32.lib comdlg32.lib uuid.lib advapi32.lib shell32.lib /SUBSYSTEM:WINDOWS /DEBUG)",
+      "Bash(test -f \"C:/Program Files \\(x86\\)/Windows Kits/10/bin/10.0.26100.0/x64/rc.exe\")",
+      "Bash(\"C:/Program Files \\(x86\\)/Windows Kits/10/bin/10.0.26100.0/x64/rc.exe\" /?)",
+      "Bash(\"C:/Program Files \\(x86\\)/Windows Kits/10/bin/10.0.26100.0/x64/rc.exe\" /fo \"D:/MyProject/ClaudeData/simple-todo/bin/x64/Debug/SimpleTodo.res\" \"D:/MyProject/ClaudeData/simple-todo/src/SimpleTodo.rc\" /i \"D:/MyProject/ClaudeData/simple-todo/src\" /i \"D:/MyDevTools/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/atlmfc/include\" /i \"C:/Program Files \\(x86\\)/Windows Kits/10/Include/10.0.26100.0/ucrt\" /d WIN32)",
+      "Bash(\"C:/Program Files \\(x86\\)/Windows Kits/10/bin/10.0.26100.0/x64/rc.exe\" /fo\"D:/MyProject/ClaudeData/simple-todo/bin/x64/Debug/SimpleTodo.res\" \"D:/MyProject/ClaudeData/simple-todo/src/SimpleTodo.rc\" /i \"D:/MyProject/ClaudeData/simple-todo/src\" /i \"D:/MyDevTools/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/atlmfc/include\" /d WIN32)",
+      "Bash(\"C:/Program Files \\(x86\\)/Windows Kits/10/bin/10.0.26100.0/x64/rc.exe\" SimpleTodo.rc)",
+      "Bash(\"C:/Program Files \\(x86\\)/Windows Kits/10/bin/10.0.26100.0/x64/rc.exe\" /i \"C:/Program Files \\(x86\\)/Windows Kits/10/Include/10.0.26100.0/um\" SimpleTodo.rc)",
+      "Bash(\"C:/Program Files \\(x86\\)/Windows Kits/10/bin/10.0.26100.0/x64/rc.exe\":*)",
+      "Bash(\"D:/MyDevTools/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/MSBuild.exe\" \"D:/MyProject/ClaudeData/simple-todo/SimpleTodo.sln\" /p:Configuration=Debug /p:Platform=x64 /t:Rebuild /v:normal)",
+      "Bash(\"D:\\\\MyDevTools\\\\Microsoft Visual Studio\\\\18\\\\Community\\\\MSBuild\\\\Current\\\\Bin\\\\MSBuild.exe\" \"D:\\\\MyProject\\\\ClaudeData\\\\simple-todo\\\\SimpleTodo.sln\" /p:Configuration=Debug /p:Platform=x64 /t:Rebuild /v:normal)",
+      "Bash(git remote set-url origin http://yu:TOKEN@192.168.86.150:8810/yu/simple-todo.git)",
+      "Bash(powershell:*)",
+      "Bash(cmd:*)",
+      "Bash(dir:*)",
+      "Bash(out-null:*)",
+      "Bash(taskkill:*)",
+      "Bash(timeout:*)",
+      "Bash(del:*)",
+      "Bash(Select-String:*)",
+      "Bash(echo:*)",
+      "Bash(pwsh:*)",
+      "Bash(powershell.exe:*)",
+      "Bash(cd:*)",
+      "Bash(git -C \"D:/MyProject/ClaudeData/simple-todo\" status:*)",
+      "Bash(git -C \"D:/MyProject/ClaudeData/simple-todo\" add scripts/ src/ third_party/)",
+      "Bash(git -C \"D:/MyProject/ClaudeData/simple-todo\" commit -m \"$\\(cat <<''EOF''\n重构源码目录结构\n\n- 将源码从 SimpleTodo/ 迁移到 src/\n- 添加编译脚本 scripts/compile_main.ps1\n- 集成 third_party/SQLite\n- 修复虚拟列表分组显示问题\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git -C \"D:/MyProject/ClaudeData/simple-todo\" add -A)",
+      "Bash(git -C \"D:/MyProject/ClaudeData/simple-todo\" commit -m \"删除旧源码目录 SimpleTodo/\")"
+    ]
+  }
+}
