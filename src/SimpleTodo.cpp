@@ -15,7 +15,8 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/,
     ATLASSERT(SUCCEEDED(hRes));
 
     // 此处提供对 ATL 控件容器的支持:
-    AtlInitCommonControls(ICC_BAR_CLASSES);    // 添加标志以支持其他控件类
+    // 【关键修复】必须初始化 ICC_LISTVIEW_CLASSES 才能使用 ListView 分组功能
+    AtlInitCommonControls(ICC_LISTVIEW_CLASSES | ICC_BAR_CLASSES);
 
     hRes = _Module.Init(NULL, hInstance);
     ATLASSERT(SUCCEEDED(hRes));

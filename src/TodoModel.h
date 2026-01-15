@@ -132,6 +132,49 @@ public:
             [groupId](const TodoItem& item) { return item.GetGroupId() == groupId; });
     }
 
+    void Sort(bool isDoneList) {
+        auto& items = isDoneList ? doneItems : todoItems;
+        std::sort(items.begin(), items.end(), [isDoneList](const TodoItem& a, const TodoItem& b) {
+            // 1. 日期排序
+            int dateA = a.GetGroupId();
+            int dateB = b.GetGroupId();
+            
+            if (dateA != dateB) {
+                if (!isDoneList) {
+                    // Todo列表：最早的排前面 (升序)
+                    return dateA < dateB;
+                } else {
+                    // Done列表：最新的排前面 (降序 - 保持原有逻辑)
+                    return dateA > dateB;
+                }
+            }
+
+            // 2. 优先级排序 (P0在前 - 升序)
+            if (a.priority != b.priority) {
+                return a.priority < b.priority;
+            }
+
+            // 3. 第三级排序
+            if (!isDoneList) {
+                // Todo列表：按截止时间排序 (早的在前)
+                LONGLONG tA = a.targetEndTime.GetTime();
+                LONGLONG tB = b.targetEndTime.GetTime();
+                if (tA <= 0) tA = _I64_MAX;
+                if (tB <= 0) tB = _I64_MAX;
+                return tA < tB;
+            } else {
+                // Done列表：按完成时间排序 (晚/最近完成的在前?)
+                // 或者保持原逻辑按截止时间? 用户只提了Todo栏。
+                // 暂时保持原逻辑：按截止时间
+                LONGLONG tA = a.targetEndTime.GetTime();
+                LONGLONG tB = b.targetEndTime.GetTime();
+                if (tA <= 0) tA = _I64_MAX;
+                if (tB <= 0) tB = _I64_MAX;
+                return tA < tB;
+            }
+        });
+    }
+
     void Clear() {
         todoItems.clear();
         doneItems.clear();

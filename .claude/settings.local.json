@@ -29,7 +29,16 @@
       "Bash(git -C \"D:/MyProject/ClaudeData/simple-todo\" add scripts/ src/ third_party/)",
       "Bash(git -C \"D:/MyProject/ClaudeData/simple-todo\" commit -m \"$\\(cat <<''EOF''\n重构源码目录结构\n\n- 将源码从 SimpleTodo/ 迁移到 src/\n- 添加编译脚本 scripts/compile_main.ps1\n- 集成 third_party/SQLite\n- 修复虚拟列表分组显示问题\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(git -C \"D:/MyProject/ClaudeData/simple-todo\" add -A)",
-      "Bash(git -C \"D:/MyProject/ClaudeData/simple-todo\" commit -m \"删除旧源码目录 SimpleTodo/\")"
+      "Bash(git -C \"D:/MyProject/ClaudeData/simple-todo\" commit -m \"删除旧源码目录 SimpleTodo/\")",
+      "Bash(git -C \"D:/MyProject/ClaudeData/simple-todo\" log --oneline -3)",
+      "Bash(msbuild:*)",
+      "Bash(Select-Object -Last 30)",
+      "Bash(Out-File -FilePath \"D:\\\\MyProject\\\\ClaudeData\\\\simple-todo\\\\compile_output.txt\" -Encoding utf8)",
+      "Bash(Get-Content \"D:\\\\MyProject\\\\ClaudeData\\\\simple-todo\\\\compile_output.txt\")",
+      "Bash(Select-Object:*)",
+      "Bash(start \"\" \"D:\\\\MyProject\\\\ClaudeData\\\\simple-todo\\\\bin\\\\x64\\\\Debug\\\\SimpleTodo.exe\")",
+      "Bash(git add:*)",
+      "Bash(git reset:*)"
     ]
   }
 }

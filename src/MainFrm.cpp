@@ -34,16 +34,19 @@ BOOL CMainFrame::OnIdle()
 
 LRESULT CMainFrame::OnCreate(UINT, WPARAM, LPARAM, BOOL&)
 {
-    // DEBUG: 输出窗口创建消息
-    ::OutputDebugString(_T("CMainFrame::OnCreate called\n"));
+    // Startup banner - always visible
+    TODO_LOG(_T("===============================================\n"));
+    TODO_LOG(_T("SimpleTodo Application Starting\n"));
+    TODO_LOG(_T("Build: " __DATE__ " " __TIME__ "\n"));
+    TODO_LOG(_T("===============================================\n"));
 
     // 加载菜单
     HMENU hMenu = ::LoadMenu(_Module.GetResourceInstance(), MAKEINTRESOURCE(IDR_MAINFRAME));
     if (hMenu) {
-        ::OutputDebugString(_T("Menu loaded successfully\n"));
         SetMenu(hMenu);
+        TODO_DEBUG_LOG(_T("Menu loaded successfully\n"));
     } else {
-        ::OutputDebugString(_T("Failed to load menu!\n"));
+        TODO_LOG(_T("ERROR: Failed to load menu\n"));
     }
 
     // 创建标题栏
@@ -65,7 +68,7 @@ LRESULT CMainFrame::OnCreate(UINT, WPARAM, LPARAM, BOOL&)
     // 创建 Todo 列表
     m_todoList.Create(m_splitter, rcDefault, NULL,
         WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS |
-        LVS_REPORT | LVS_OWNERDATA | LVS_SHOWSELALWAYS,
+        LVS_REPORT | LVS_SHOWSELALWAYS,  // 移除 LVS_OWNERDATA，使用普通列表
         WS_EX_CLIENTEDGE);
     m_todoList.SetDataManager(&m_dataManager);
     m_todoList.SetIsDoneList(false);
@@ -73,14 +76,19 @@ LRESULT CMainFrame::OnCreate(UINT, WPARAM, LPARAM, BOOL&)
     // 创建 Done 列表
     m_doneList.Create(m_splitter, rcDefault, NULL,
         WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS |
-        LVS_REPORT | LVS_OWNERDATA | LVS_SHOWSELALWAYS,
+        LVS_REPORT | LVS_SHOWSELALWAYS,  // 移除 LVS_OWNERDATA，使用普通列表
         WS_EX_CLIENTEDGE);
     m_doneList.SetDataManager(&m_dataManager);
     m_doneList.SetIsDoneList(true);
 
     // 设置分割器（上下分割）
     m_splitter.SetSplitterPanes(m_todoList, m_doneList);
-    m_splitter.SetSplitterPos(300); // 初始位置
+    
+    // 【修复】启用比例分割，并自动居中
+    // SPLIT_PROPORTIONAL: 调整大小时保持比例
+    // SetSplitterPos(-1): 设置为中间位置
+    m_splitter.SetSplitterExtendedStyle(SPLIT_PROPORTIONAL);
+    m_splitter.SetSplitterPos(-1);
 
     // 创建状态栏
     m_statusBar.Create(m_hWnd, rcDefault, nullptr,
@@ -101,6 +109,62 @@ LRESULT CMainFrame::OnCreate(UINT, WPARAM, LPARAM, BOOL&)
         _stprintf_s(szDebug, _T("LoadAll result=%d, todoCount=%zu, doneCount=%zu\n"),
             bLoaded, m_dataManager.todoItems.size(), m_dataManager.doneItems.size());
         ::OutputDebugString(szDebug);
+
+        // 如果数据库为空，添加测试数据
+        if (m_dataManager.todoItems.empty() && m_dataManager.doneItems.empty()) {
+            ::OutputDebugString(_T("Database is empty, adding test data...\n"));
+
+            CTime now = CTime::GetCurrentTime();
+            CTime yesterday = now - CTimeSpan(1, 0, 0, 0);
+            CTime dayBefore = now - CTimeSpan(2, 0, 0, 0);
+
+            // 添加4个测试项
+            TodoItem item1;
+            item1.id = m_dataManager.nextId++;
+            item1.priority = Priority::P0;
+            item1.title = _T("紧急任务：完成项目修复");
+            item1.note = _T("修复 ListView 分组显示问题");
+            item1.createTime = dayBefore;
+            item1.targetEndTime = now;
+            item1.isDone = false;
+            m_dataManager.todoItems.push_back(item1);
+
+            TodoItem item2;
+            item2.id = m_dataManager.nextId++;
+            item2.priority = Priority::P1;
+            item2.title = _T("编写测试用例");
+            item2.note = _T("覆盖主要功能模块");
+            item2.createTime = yesterday;
+            item2.targetEndTime = now + CTimeSpan(1, 0, 0, 0);
+            item2.isDone = false;
+            m_dataManager.todoItems.push_back(item2);
+
+            TodoItem item3;
+            item3.id = m_dataManager.nextId++;
+            item3.priority = Priority::P2;
+            item3.title = _T("代码审查");
+            item3.note = _T("审查新功能代码");
+            item3.createTime = now;
+            item3.targetEndTime = now + CTimeSpan(2, 0, 0, 0);
+            item3.isDone = false;
+            m_dataManager.todoItems.push_back(item3);
+
+            TodoItem item4;
+            item4.id = m_dataManager.nextId++;
+            item4.priority = Priority::P3;
+            item4.title = _T("更新文档");
+            item4.note = _T("更新用户手册");
+            item4.createTime = now;
+            item4.targetEndTime = now + CTimeSpan(3, 0, 0, 0);
+            item4.isDone = false;
+            m_dataManager.todoItems.push_back(item4);
+
+            // 保存测试数据
+            dbManager.SaveAll(m_dataManager);
+
+            _stprintf_s(szDebug, _T("Added %zu test items\n"), m_dataManager.todoItems.size());
+            ::OutputDebugString(szDebug);
+        }
     } else {
         ::OutputDebugString(_T("Database Initialize failed\n"));
     }
@@ -240,17 +304,35 @@ LRESULT CMainFrame::OnNotify(UINT, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
         ::OutputDebugString(szNotify);
     }
 
-    if (pnmh->hwndFrom == m_todoList || pnmh->hwndFrom == m_doneList) {
-        if (pnmh->code == LVN_GETDISPINFO) {
-            // LVN_GETDISPINFO 现在由 CTodoListCtrl::OnGetDispInfo 统一处理
-            // 这里只记录，不做处理
-            NMLVDISPINFO* pDispInfo = (NMLVDISPINFO*)lParam;
-            BOOL bIsDone = (pnmh->hwndFrom == m_doneList);
+    // 【关键修复】LVN_GETDISPINFO 必须让 WTL 自动反射到子控件，不能在这里拦截
+    // 移除了之前的 LVN_GETDISPINFO 拦截代码
 
-            TCHAR szDebug[256];
-            _stprintf_s(szDebug, _T("MainFrame OnNotify LVN_GETDISPINFO: item=%d, isDone=%d\n"),
-                pDispInfo->item.iItem, bIsDone);
-            ::OutputDebugString(szDebug);
+    // 处理右键点击 (NM_RCLICK) 和 双击 (NM_DBLCLK)
+    if (pnmh->code == NM_RCLICK || pnmh->code == NM_DBLCLK) {
+        // 检查源窗口是否为我们的列表
+        bool isTodoList = (pnmh->hwndFrom == m_todoList.m_hWnd);
+        bool isDoneList = (pnmh->hwndFrom == m_doneList.m_hWnd);
+
+        if (isTodoList || isDoneList) {
+            LPNMITEMACTIVATE pnmitem = (LPNMITEMACTIVATE)lParam;
+            int index = pnmitem->iItem;
+            // 确保 isDoneList 标志正确
+            bool bIsDone = isDoneList;
+
+            if (pnmh->code == NM_RCLICK) {
+                // 右键菜单: 无须选中特定项也可以弹出(如通用菜单)，但这里主要是针对项
+                // 发送 ID_TODO_CONTEXT_MENU 命令
+                // LPARAM: LOWORD=index, HIWORD=isDone
+                SendMessage(WM_COMMAND, ID_TODO_CONTEXT_MENU, MAKELPARAM(index, bIsDone ? 1 : 0));
+                bHandled = TRUE;
+                return 0;
+            }
+            else if (pnmh->code == NM_DBLCLK && index != -1) {
+                // 双击编辑
+                SendMessage(WM_COMMAND, ID_TODO_EDIT, MAKELPARAM(index, bIsDone ? 1 : 0));
+                bHandled = TRUE;
+                return 0;
+            }
         }
     }
 
@@ -350,13 +432,14 @@ void CMainFrame::SetupLists()
     m_todoList.SetExtendedListViewStyle(LVS_EX_DOUBLEBUFFER |
         LVS_EX_FULLROWSELECT | LVS_EX_INFOTIP | LVS_EX_GRIDLINES);
 
-    m_todoList.InsertColumn(0, L"优先级", LVCFMT_CENTER, 55);
-    m_todoList.InsertColumn(1, L"任务描述", LVCFMT_LEFT, 380);
-    m_todoList.InsertColumn(2, L"创建时间", LVCFMT_LEFT, 100);
-    m_todoList.InsertColumn(3, L"截止时间", LVCFMT_LEFT, 100);
+    m_todoList.InsertColumn(0, L"日期", LVCFMT_LEFT, 90);
+    m_todoList.InsertColumn(1, L"优先级", LVCFMT_CENTER, 55);
+    m_todoList.InsertColumn(2, L"任务描述", LVCFMT_LEFT, 380);
+    m_todoList.InsertColumn(3, L"创建时间", LVCFMT_LEFT, 100);
+    m_todoList.InsertColumn(4, L"截止时间", LVCFMT_LEFT, 100);
 
-    // 先设置虚拟列表样式，再启用分组视图
-    ListView_EnableGroupView(m_todoList, TRUE);
+    // 【架构简化】不再启用分组视图（在RefreshList中会显式禁用）
+    // ListView_EnableGroupView(m_todoList, TRUE);
 
     // Done 列表列
     m_doneList.SetExtendedListViewStyle(LVS_EX_DOUBLEBUFFER |
@@ -366,7 +449,8 @@ void CMainFrame::SetupLists()
     m_doneList.InsertColumn(1, L"任务描述", LVCFMT_LEFT, 380);
     m_doneList.InsertColumn(2, L"完成时间", LVCFMT_LEFT, 120);
 
-    ListView_EnableGroupView(m_doneList, TRUE);
+    // 【架构简化】不再启用分组视图
+    // ListView_EnableGroupView(m_doneList,TRUE);
 }
 
 void CMainFrame::UpdateLists()
@@ -381,9 +465,9 @@ void CMainFrame::UpdateLists()
     m_todoList.RefreshList();
     m_doneList.RefreshList();
 
-    // 展开所有分组，确保新任务可见
-    m_todoList.ExpandAllGroups();
-    m_doneList.ExpandAllGroups();
+    // 【架构简化】不再使用分组，无需展开
+    // m_todoList.ExpandAllGroups();
+    // m_doneList.ExpandAllGroups();
 
     _stprintf_s(szDebug, _T("ListRefresh: TodoItems=%d, DoneItems=%d\n"),
         m_todoList.GetItemCount(), m_doneList.GetItemCount());

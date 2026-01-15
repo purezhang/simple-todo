@@ -63,7 +63,7 @@ public:
 
 private:
     // UI 组件
-    CSplitterWindow m_splitter;
+    CHorSplitterWindow m_splitter;
     CTodoListCtrl m_todoList;
     CTodoListCtrl m_doneList;
     CStatusBarCtrl m_statusBar;

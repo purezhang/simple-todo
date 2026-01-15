@@ -1,6 +1,20 @@
 #pragma once
 #include "stdafx.h"
 
+// 定义 ListView 分组消息常量（确保跨 Windows 版本兼容）
+#ifndef LVM_INSERTGROUPW
+#define LVM_INSERTGROUPW (LVM_FIRST + 145)
+#endif
+#ifndef LVM_GETGROUPCOUNT
+#define LVM_GETGROUPCOUNT (LVM_FIRST + 152)
+#endif
+#ifndef LVM_REMOVEGROUP
+#define LVM_REMOVEGROUP (LVM_FIRST + 146)
+#endif
+#ifndef LVM_GETGROUPINFO
+#define LVM_GETGROUPINFO (LVM_FIRST + 153)
+#endif
+
 // 自定义列表控件，支持虚拟模式、分组视图和优先级颜色
 class CTodoListCtrl :
     public CWindowImpl<CTodoListCtrl, CListViewCtrl>
@@ -13,7 +27,8 @@ public:
         REFLECTED_NOTIFY_CODE_HANDLER(NM_CLICK, OnClick)
         REFLECTED_NOTIFY_CODE_HANDLER(NM_DBLCLK, OnDblClick)
         REFLECTED_NOTIFY_CODE_HANDLER(LVN_KEYDOWN, OnKeyDown)
-        REFLECTED_NOTIFY_CODE_HANDLER(NM_CUSTOMDRAW, OnCustomDraw)
+        // 【调试】临时禁用自定义绘制，排除颜色问题
+        // REFLECTED_NOTIFY_CODE_HANDLER(NM_CUSTOMDRAW, OnCustomDraw)
         REFLECTED_NOTIFY_CODE_HANDLER(NM_RCLICK, OnRClick)
         REFLECTED_NOTIFY_CODE_HANDLER(LVN_GETDISPINFO, OnGetDispInfo)
         DEFAULT_REFLECTION_HANDLER()
@@ -43,134 +58,81 @@ public:
     }
 
     // 刷新列表
+    // 刷新列表 - 直接插入真实项目，不使用虚拟列表
     void RefreshList() {
         if (m_pDataManager) {
-            TCHAR szDebug[256];
-            _stprintf_s(szDebug, _T("RefreshList: isDoneList=%d, itemCount=%d\n"),
+            TODO_DEBUG_LOGF(_T("RefreshList: isDoneList=%d, itemCount=%d\n"),
                 m_isDoneList, m_pDataManager->GetItemCount(m_isDoneList));
-            ::OutputDebugString(szDebug);
 
-            // 重要：对于虚拟列表，必须先创建分组，再设置项目数量
-            // 否则分组视图无法正确显示
-            if (m_pDataManager->GetItemCount(m_isDoneList) > 0) {
-                RefreshGroups();
-            } else {
-                // 没有项目时，清除所有分组
-                RemoveAllGroups();
-            }
+            // 排序数据 (新增)
+            // 规则：1. 日期(降序) 2. 优先级(升序) 3. 截止时间(升序)
+            m_pDataManager->Sort(m_isDoneList);
 
-            // 然后再设置项目数量
+            // 清空现有项目
+            DeleteAllItems();
+            
+            // 确保禁用分组
+            ListView_EnableGroupView(m_hWnd, FALSE);
+            ListView_RemoveAllGroups(m_hWnd);
+
+            // 直接插入真实项目
             int itemCount = m_pDataManager->GetItemCount(m_isDoneList);
-            SetItemCountEx(itemCount, LVSICF_NOSCROLL);
+            for (int i = 0; i < itemCount; i++) {
+                const TodoItem* pItem = m_pDataManager->GetItemAt(i, m_isDoneList);
+                if (pItem) {
+                    // 插入项目
+                    // 准备数据
+                    CString strDate = pItem->createTime.Format(_T("%Y/%m/%d"));
+                    CString strPriority = pItem->GetPriorityString();
+                    CString strTitle(pItem->title.c_str());
+                    CString strTime = m_isDoneList ? pItem->GetDoneTimeString() : pItem->GetCreateTimeString();
 
-            // 确保启用分组视图
-            EnableGroupView(TRUE);
+                    // 插入项目
+                    LVITEM lvi = {0};
+                    lvi.mask = LVIF_TEXT;
+                    lvi.iItem = i;
+                    
+                    if (!m_isDoneList) {
+                        // Todo 列表：[0]日期 [1]优先级 [2]标题 [3]时间 [4]截止
+                        lvi.iSubItem = 0;
+                        lvi.pszText = (LPTSTR)(LPCTSTR)strDate;
+                        int idx = InsertItem(&lvi);
 
-            // 强制刷新列表视图
-            RedrawItems(0, -1);
-        }
-        Invalidate(FALSE);
-    }
+                        SetItemText(idx, 1, (LPTSTR)(LPCTSTR)strPriority);
+                        SetItemText(idx, 2, (LPTSTR)(LPCTSTR)strTitle);
+                        SetItemText(idx, 3, (LPTSTR)(LPCTSTR)strTime);
+                        
+                        CString strEndTime = pItem->GetEndTimeString();
+                        SetItemText(idx, 4, (LPTSTR)(LPCTSTR)strEndTime);
+                    } 
+                    else {
+                        // Done 列表：保持原样 [0]优先级 [1]标题 [2]完成时间
+                        lvi.iSubItem = 0;
+                        lvi.pszText = (LPTSTR)(LPCTSTR)strPriority;
+                        int idx = InsertItem(&lvi);
 
-    // 刷新分组 - 智能更新，只添加新分组，不移除现有分组
-    void RefreshGroups() {
-        if (!m_pDataManager) {
-            ::OutputDebugString(_T("RefreshGroups: m_pDataManager is null!\n"));
-            return;
-        }
-
-        ::OutputDebugString(_T("RefreshGroups: Start\n"));
-
-        // 获取所有需要的组 ID
-        std::vector<int> groupIds = m_pDataManager->GetAllGroupIds(m_isDoneList);
-
-        TCHAR szDebug[256];
-        _stprintf_s(szDebug, _T("  Required groupIds count=%zu, isDoneList=%d\n"), groupIds.size(), m_isDoneList);
-        ::OutputDebugString(szDebug);
-
-        // 使用正确的 API 获取组数量
-        int currentGroupCount = ListView_GetGroupCount(m_hWnd);
-        _stprintf_s(szDebug, _T("  Current groupCount before cleanup=%d\n"), currentGroupCount);
-        ::OutputDebugString(szDebug);
-
-        // 移除不需要的分组（从后往前遍历）
-        for (int i = currentGroupCount - 1; i >= 0; i--) {
-            int existingGroupId = GetGroupIdByIndex(i);
-            bool found = false;
-            for (int newGroupId : groupIds) {
-                if (existingGroupId == newGroupId) {
-                    found = true;
-                    break;
+                        SetItemText(idx, 1, (LPTSTR)(LPCTSTR)strTitle);
+                        SetItemText(idx, 2, (LPTSTR)(LPCTSTR)strTime);
+                    }
+                    
+                    // 仅在 Debug 模式记录详细插入日志
+                    TODO_DEBUG_LOGF(_T("  Inserted item %d: %s\n"), i, pItem->title.c_str());
                 }
             }
-            if (!found) {
-                _stprintf_s(szDebug, _T("  Removing group: index=%d, id=%d\n"), i, existingGroupId);
-                ::OutputDebugString(szDebug);
-                RemoveGroup(i);
-            }
+
+            TODO_DEBUG_LOGF(_T("RefreshList complete: inserted %d items\n"), itemCount);
         }
-
-        // 添加新分组 - 使用 std::set 来跟踪已存在的组，避免重复
-        std::set<int> existingGroupSet;
-        currentGroupCount = ListView_GetGroupCount(m_hWnd);
-        _stprintf_s(szDebug, _T("  Group count after removal=%d, adding new groups...\n"), currentGroupCount);
-        ::OutputDebugString(szDebug);
-
-        // 先收集所有已存在的组 ID
-        for (int i = 0; i < currentGroupCount; i++) {
-            existingGroupSet.insert(GetGroupIdByIndex(i));
-        }
-
-        // 为每个需要的组 ID 创建新分组（如果不存在）
-        for (int groupId : groupIds) {
-            if (existingGroupSet.find(groupId) == existingGroupSet.end()) {
-                // 组不存在，需要创建
-                LVGROUP group = {0};
-                group.cbSize = sizeof(LVGROUP);
-                group.mask = LVGF_HEADER | LVGF_GROUPID | LVGF_STATE | LVGF_ALIGN;
-                group.iGroupId = groupId;
-
-                // 格式化组标题
-                int year = groupId / 10000;
-                int month = (groupId % 10000) / 100;
-                int day = groupId % 100;
-
-                CString strHeader;
-                strHeader.Format(_T("%04d/%02d/%02d (%zu项)"), year, month, day,
-                    m_pDataManager->GetGroupItemCount(groupId, m_isDoneList));
-
-                group.pszHeader = strHeader.GetBuffer();
-                group.state = LVGS_COLLAPSIBLE;
-                group.uAlign = LVGA_HEADER_LEFT;
-
-                _stprintf_s(szDebug, _T("  Inserting NEW group: id=%d, header='%s'\n"), groupId, strHeader.GetString());
-                ::OutputDebugString(szDebug);
-
-                int result = InsertGroup(-1, &group);
-                _stprintf_s(szDebug, _T("  InsertGroup result=%d, error=%d\n"), result, GetLastError());
-                ::OutputDebugString(szDebug);
-
-                strHeader.ReleaseBuffer();
-            } else {
-                _stprintf_s(szDebug, _T("  Group %d already exists, skipping\n"), groupId);
-                ::OutputDebugString(szDebug);
-            }
-        }
-
-        // 设置分组视图样式
-        EnableGroupView(TRUE);
-
-        int finalCount = ListView_GetGroupCount(m_hWnd);
-        _stprintf_s(szDebug, _T("RefreshGroups: End. Final groupCount=%d\n"), finalCount);
-        ::OutputDebugString(szDebug);
     }
+    
+    // RefreshGroups 已移除 (不再使用分组)
 
     // 获取指定索引的分组ID
     int GetGroupIdByIndex(int index) {
         LVGROUP group = {0};
         group.cbSize = sizeof(LVGROUP);
         group.mask = LVGF_GROUPID;
-        BOOL bResult = GetGroupInfo(index, &group);
+        // 使用 LVM_GETGROUPINFO 消息
+        BOOL bResult = (BOOL)::SendMessage(m_hWnd, LVM_GETGROUPINFO, index, (LPARAM)&group);
         TCHAR szDebug[256];
         _stprintf_s(szDebug, _T("GetGroupIdByIndex: index=%d, result=%d, groupId=%d\n"),
             index, bResult, group.iGroupId);
@@ -318,41 +280,79 @@ public:
         ::OutputDebugString(szDebug);
 
         if (m_pDataManager) {
-            const TodoItem* pItem = m_pDataManager->GetItemAt(pDispInfo->item.iItem, m_isDoneList);
-            if (pItem) {
-                pDispInfo->item.iGroupId = pItem->GetGroupId();
+            int itemCount = m_pDataManager->GetItemCount(m_isDoneList);
+            _stprintf_s(szDebug, _T("  Item count in OnGetDispInfo: %d\n"), itemCount);
+            ::OutputDebugString(szDebug);
 
-                if (pDispInfo->item.mask & LVIF_TEXT) {
-                    switch (pDispInfo->item.iSubItem) {
-                        case 0:
+            if (pDispInfo->item.iItem >= 0 && pDispInfo->item.iItem < itemCount) {
+                const TodoItem* pItem = m_pDataManager->GetItemAt(pDispInfo->item.iItem, m_isDoneList);
+                if (pItem) {
+                    _stprintf_s(szDebug, _T("  Got item: id=%d, title='%s'\n"), pItem->id, pItem->title.c_str());
+                    ::OutputDebugString(szDebug);
+
+                    // 【关键修复】设置分组ID（即使 mask 不包含 LVIF_GROUPID 也要设置）
+                    pDispInfo->item.iGroupId = pItem->GetGroupId();
+                    _stprintf_s(szDebug, _T("  Set iGroupId=%d\n"), pDispInfo->item.iGroupId);
+                    ::OutputDebugString(szDebug);
+
+                    // 确保返回分组信息
+                    pDispInfo->item.mask |= LVIF_GROUPID;
+
+                    // 设置文本
+                    if (pDispInfo->item.mask & LVIF_TEXT) {
+                        _stprintf_s(szDebug, _T("  Setting text for subitem=%d\n"), pDispInfo->item.iSubItem);
+                        ::OutputDebugString(szDebug);
+                        
+                        CString strValue;
+                        switch (pDispInfo->item.iSubItem) {
+                            case 0:
+                                strValue = pItem->GetPriorityString();
+                                break;
+                            case 1:
+                                strValue = pItem->title.c_str();
+                                break;
+                            case 2:
+                                if (m_isDoneList) {
+                                    strValue = pItem->GetDoneTimeString();
+                                } else {
+                                    strValue = pItem->GetCreateTimeString();
+                                }
+                                break;
+                            case 3:
+                                if (!m_isDoneList) {
+                                    strValue = pItem->GetEndTimeString();
+                                }
+                                break;
+                            default:
+                                strValue = _T("");
+                                break;
+                        }
+                        
+                        _stprintf_s(szDebug, _T("  Setting value: '%s'\n"), (LPCTSTR)strValue);
+                        ::OutputDebugString(szDebug);
+                        
+                        // 确保文本不会溢出
+                        if (pDispInfo->item.pszText != nullptr && pDispInfo->item.cchTextMax > 0) {
                             wcsncpy_s(pDispInfo->item.pszText, pDispInfo->item.cchTextMax,
-                                (LPCTSTR)pItem->GetPriorityString(), _TRUNCATE);
-                            break;
-                        case 1:
-                            wcsncpy_s(pDispInfo->item.pszText, pDispInfo->item.cchTextMax,
-                                pItem->title.c_str(), _TRUNCATE);
-                            break;
-                        case 2:
-                            if (m_isDoneList) {
-                                CString str = pItem->GetDoneTimeString();
-                                wcsncpy_s(pDispInfo->item.pszText, pDispInfo->item.cchTextMax,
-                                    (LPCTSTR)str, _TRUNCATE);
-                            } else {
-                                CString str = pItem->GetCreateTimeString();
-                                wcsncpy_s(pDispInfo->item.pszText, pDispInfo->item.cchTextMax,
-                                    (LPCTSTR)str, _TRUNCATE);
-                            }
-                            break;
-                        case 3:
-                            if (!m_isDoneList) {
-                                CString str = pItem->GetEndTimeString();
-                                wcsncpy_s(pDispInfo->item.pszText, pDispInfo->item.cchTextMax,
-                                    (LPCTSTR)str, _TRUNCATE);
-                            }
-                            break;
+                                (LPCTSTR)strValue, _TRUNCATE);
+                            _stprintf_s(szDebug, _T("  Text copied successfully\n"));
+                            ::OutputDebugString(szDebug);
+                        } else {
+                            _stprintf_s(szDebug, _T("  Warning: pszText is null or cchTextMax is 0\n"));
+                            ::OutputDebugString(szDebug);
+                        }
                     }
+                } else {
+                    _stprintf_s(szDebug, _T("  WARNING: GetItemAt returned null for index=%d\n"), pDispInfo->item.iItem);
+                    ::OutputDebugString(szDebug);
                 }
+            } else {
+                _stprintf_s(szDebug, _T("  WARNING: Invalid item index=%d (count=%d)\n"), pDispInfo->item.iItem, itemCount);
+                ::OutputDebugString(szDebug);
             }
+        } else {
+            _stprintf_s(szDebug, _T("  WARNING: m_pDataManager is null\n"));
+            ::OutputDebugString(szDebug);
         }
 
         return 0;
