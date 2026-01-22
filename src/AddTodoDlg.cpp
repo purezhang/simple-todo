@@ -35,6 +35,17 @@ CAddTodoDlg::CAddTodoDlg()
     m_item.isDone = false;
 }
 
+CAddTodoDlg::CAddTodoDlg(const TodoItem& item)
+    : m_item(item)
+{
+    // 使用传入的任务数据初始化
+}
+
+void CAddTodoDlg::SetTodoItem(const TodoItem& item)
+{
+    m_item = item;
+}
+
 LRESULT CAddTodoDlg::OnInitDialog(UINT, WPARAM, LPARAM, BOOL&)
 {
     ::OutputDebugString(_T("CAddTodoDlg::OnInitDialog called\n"));
@@ -57,9 +68,18 @@ LRESULT CAddTodoDlg::OnInitDialog(UINT, WPARAM, LPARAM, BOOL&)
     m_comboPriority.AddString(_T("P1 重要"));
     m_comboPriority.AddString(_T("P2 普通"));
     m_comboPriority.AddString(_T("P3 暂缓"));
-    m_comboPriority.SetCurSel(1); // 默认 P1
-
-    // 设置日期时间
+    
+    // 根据任务数据初始化控件
+    // 1. 标题
+    m_editTitle.SetWindowText(m_item.title.c_str());
+    
+    // 2. 备注
+    m_editNote.SetWindowText(m_item.note.c_str());
+    
+    // 3. 优先级
+    m_comboPriority.SetCurSel((int)m_item.priority);
+    
+    // 4. 日期时间
     {
         SYSTEMTIME st = {0};
         TimeToSystemTime(m_item.targetEndTime, st);

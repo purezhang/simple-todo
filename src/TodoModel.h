@@ -14,7 +14,18 @@ struct TodoItem {
     CTime targetEndTime;
     CTime actualDoneTime;
     bool isDone = false;
+    bool isPinned = false; // 置顶状态
 
+    // 获取格式化的日期字符串，用于分组依据
+    std::wstring GetGroupKey() const {
+        struct tm tmTime;
+        createTime.GetLocalTm(&tmTime);
+        wchar_t buffer[32];
+        swprintf_s(buffer, L"%04d%02d%02d", tmTime.tm_year + 1900, tmTime.tm_mon + 1, tmTime.tm_mday);
+        return std::wstring(buffer);
+    }
+
+    // 获取分组ID，用于排序和分组显示
     int GetGroupId() const {
         struct tm tmTime;
         createTime.GetLocalTm(&tmTime);
@@ -84,15 +95,31 @@ public:
     }
 
     bool DeleteTodo(UINT id, bool isDoneList) {
-        auto& items = isDoneList ? doneItems : todoItems;
-        auto it = std::find_if(items.begin(), items.end(),
-            [id](const TodoItem& item) { return item.id == id; });
-        if (it != items.end()) {
-            items.erase(it);
-            return true;
-        }
-        return false;
+    TCHAR szDebug[256];
+    _stprintf_s(szDebug, _T("TodoDataManager::DeleteTodo: id=%d, isDoneList=%d\n"), id, isDoneList);
+    ::OutputDebugString(szDebug);
+    
+    auto& items = isDoneList ? doneItems : todoItems;
+    _stprintf_s(szDebug, _T("TodoDataManager::DeleteTodo: items.size()=%zu\n"), items.size());
+    ::OutputDebugString(szDebug);
+    
+    auto it = std::find_if(items.begin(), items.end(),
+        [id](const TodoItem& item) { return item.id == id; });
+    if (it != items.end()) {
+        _stprintf_s(szDebug, _T("TodoDataManager::DeleteTodo: Found item at index=%zu, title='%s'\n"), 
+            std::distance(items.begin(), it), it->title.c_str());
+        ::OutputDebugString(szDebug);
+        
+        items.erase(it);
+        _stprintf_s(szDebug, _T("TodoDataManager::DeleteTodo: After erase, items.size()=%zu\n"), items.size());
+        ::OutputDebugString(szDebug);
+        
+        return true;
     }
+    _stprintf_s(szDebug, _T("TodoDataManager::DeleteTodo: Item not found\n"));
+    ::OutputDebugString(szDebug);
+    return false;
+}
 
     bool ChangePriority(UINT id, Priority newPriority, bool isDoneList) {
         auto& items = isDoneList ? doneItems : todoItems;
@@ -135,6 +162,13 @@ public:
     void Sort(bool isDoneList) {
         auto& items = isDoneList ? doneItems : todoItems;
         std::sort(items.begin(), items.end(), [isDoneList](const TodoItem& a, const TodoItem& b) {
+            // 0. 置顶排序 (仅 Todo 列表)
+            if (!isDoneList) {
+                if (a.isPinned != b.isPinned) {
+                    return a.isPinned > b.isPinned; // true (1) > false (0) -> pinned first
+                }
+            }
+
             // 1. 日期排序
             int dateA = a.GetGroupId();
             int dateB = b.GetGroupId();
@@ -173,6 +207,21 @@ public:
                 return tA < tB;
             }
         });
+    }
+
+    bool UpdateTodo(const TodoItem& updatedItem, bool isDoneList) {
+        auto& items = isDoneList ? doneItems : todoItems;
+        auto it = std::find_if(items.begin(), items.end(),
+            [id = updatedItem.id](const TodoItem& item) { return item.id == id; });
+        if (it != items.end()) {
+            // 更新任务数据（除了ID和创建时间）
+            it->priority = updatedItem.priority;
+            it->title = updatedItem.title;
+            it->note = updatedItem.note;
+            it->targetEndTime = updatedItem.targetEndTime;
+            return true;
+        }
+        return false;
     }
 
     void Clear() {

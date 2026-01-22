@@ -1,0 +1,14 @@
+{
+  "version": "1.0",
+  "gitea": {
+    "url": "http://192.168.86.150:8810",
+    "name": "192.168.86.150:8810"
+  },
+  "project": {
+    "owner": "yu",
+    "repo": "simple-todo"
+  },
+  "defaults": {
+    "setAsDefaultContext": true
+  }
+}

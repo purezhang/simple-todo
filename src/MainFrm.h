@@ -53,25 +53,40 @@ public:
     LRESULT OnTodoContextMenu(UINT, WPARAM, LPARAM, BOOL&); // 使用 MESSAGE_HANDLER
     LRESULT OnContextMarkDone(WORD, WORD, HWND, BOOL&);
     LRESULT OnContextCopyText(WORD, WORD, HWND, BOOL&);
+    LRESULT OnContextPin(WORD, WORD, HWND, BOOL&); // 新增
     LRESULT OnContextPriorityP0(WORD, WORD, HWND, BOOL&);
     LRESULT OnContextPriorityP1(WORD, WORD, HWND, BOOL&);
     LRESULT OnContextPriorityP2(WORD, WORD, HWND, BOOL&);
     LRESULT OnContextPriorityP3(WORD, WORD, HWND, BOOL&);
+    LRESULT OnToggleTopmost(WORD, WORD, HWND, BOOL&); // 窗口置顶功能
 
     virtual BOOL PreTranslateMessage(MSG* pMsg);
     virtual BOOL OnIdle();
 
 private:
     // UI 组件
-    CHorSplitterWindow m_splitter;
+    CHorSplitterWindow m_mainSplitter; // 主分割器：上待办，下底部容器
+    CSplitterWindow m_bottomSplitter;  // 底部分割器：左已完成，右详情
     CTodoListCtrl m_todoList;
     CTodoListCtrl m_doneList;
     CStatusBarCtrl m_statusBar;
+    
+    // 右侧详情面板
+    CStatic m_detailPanel;
+    CStatic m_detailPriority;
+    CStatic m_detailDescription;
+    CStatic m_detailCreateTime;
+    CStatic m_detailEndTime; // 截止时间
+    CStatic m_detailNote; // 备注
+    CStatic m_detailEmpty; // 空状态提示
+    
+    // 分隔线
+    CStatic m_detailSeparator1;
+    CStatic m_detailSeparator2;
 
-    // 标题栏控件
-    CStatic m_titleStatic;
-    CButton m_btnExpand;
-    CButton m_btnCollapse;
+    // 工具栏
+    CToolBarCtrl m_toolbar;
+    CReBarCtrl m_rebar;
 
     // 数据管理
     TodoDataManager m_dataManager;
@@ -83,12 +98,26 @@ private:
     // 语言设置 (true = 中文, false = 英文)
     bool m_bChineseLanguage;
 
+    // 窗口置顶状态
+    bool m_bTopmost = false;
+
+    // 标志位：是否为第一次调整大小
+    bool m_bFirstSize = true;
+
+    // 全局 UI 资源
+    CFont m_fontList;     // 列表字体 (Segoe UI)
+    CImageList m_imgList; // 用于撑开行高的空图标列表
+
     // 初始化函数
     void InitializeUI();
     void SetupLists();
     void UpdateLists();
     void UpdateGroups();
     void RefreshDisplay();
+
+    // 详情面板相关函数
+    void CreateDetailPanelControls();
+    void UpdateDetailPanel(int index, bool isDoneList);
 
     // 菜单处理
     void ShowContextMenu(int index, bool isDoneList, POINT pt);

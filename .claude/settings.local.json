@@ -38,7 +38,12 @@
       "Bash(Select-Object:*)",
       "Bash(start \"\" \"D:\\\\MyProject\\\\ClaudeData\\\\simple-todo\\\\bin\\\\x64\\\\Debug\\\\SimpleTodo.exe\")",
       "Bash(git add:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "mcp__gitea-mcp-tool__gitea_context_get",
+      "mcp__gitea-mcp-tool__gitea_issue_list",
+      "mcp__gitea-mcp-tool__gitea_issue_get",
+      "mcp__gitea-mcp-tool__gitea_issue_comment",
+      "mcp__gitea-mcp-tool__gitea_issue_create"
     ]
   }
 }

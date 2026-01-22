@@ -19,7 +19,9 @@ public:
     END_MSG_MAP()
 
     CAddTodoDlg();
+    CAddTodoDlg(const TodoItem& item);
     TodoItem GetResult() const { return m_item; }
+    void SetTodoItem(const TodoItem& item);
 
     LRESULT OnInitDialog(UINT, WPARAM, LPARAM, BOOL&);
     LRESULT OnOK(WORD, WORD, HWND, BOOL&);

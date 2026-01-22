@@ -47,6 +47,15 @@ END
 
 /////////////////////////////////////////////////////////////////////////////
 //
+// Icon
+//
+
+// ICON resource with different sizes for better display quality
+IDR_MAINFRAME           ICON                    "app_icon.ico"
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
 // Dialog
 //
 
@@ -98,6 +107,8 @@ BEGIN
     BEGIN
         MENUITEM "展开全部(&E)",                ID_VIEW_EXPAND_ALL
         MENUITEM "收起全部(&C)",              ID_VIEW_COLLAPSE_ALL
+        MENUITEM SEPARATOR
+        MENUITEM "窗口置顶(&T)",               ID_WINDOW_TOPMOST
     END
     POPUP "帮助(&H)"
     BEGIN
@@ -129,6 +140,8 @@ BEGIN
     BEGIN
         MENUITEM "E&xpand All",                ID_VIEW_EXPAND_ALL
         MENUITEM "&Collapse All",              ID_VIEW_COLLAPSE_ALL
+        MENUITEM SEPARATOR
+        MENUITEM "Window &Topmost",            ID_WINDOW_TOPMOST
     END
     POPUP "&Help"
     BEGIN

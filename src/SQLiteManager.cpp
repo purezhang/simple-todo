@@ -38,7 +38,15 @@ bool CSQLiteManager::Initialize()
     // 设置数据库编码为 UTF-16
     sqlite3_exec(m_db, "PRAGMA encoding = 'UTF-16';", nullptr, nullptr, nullptr);
 
-    return CreateTables();
+    if (!CreateTables()) {
+        return false;
+    }
+
+    // 尝试添加 is_pinned 列 (如果不存在)
+    // 忽略错误，因为如果列已存在会失败，这是预期的
+    sqlite3_exec(m_db, "ALTER TABLE todos ADD COLUMN is_pinned INTEGER DEFAULT 0;", nullptr, nullptr, nullptr);
+
+    return true;
 }
 
 bool CSQLiteManager::CreateTables()
@@ -95,8 +103,8 @@ bool CSQLiteManager::LoadItems(std::vector<TodoItem>& items, bool isDone)
     ::OutputDebugString(szDebug);
 
     const char* sql = isDone ?
-        "SELECT id, priority, title, note, create_time, target_end_time, actual_done_time FROM todos WHERE is_done=1 ORDER BY create_time DESC;" :
-        "SELECT id, priority, title, note, create_time, target_end_time, actual_done_time FROM todos WHERE is_done=0 ORDER BY create_time DESC;";
+        "SELECT id, priority, title, note, create_time, target_end_time, actual_done_time, is_pinned FROM todos WHERE is_done=1 ORDER BY create_time DESC;" :
+        "SELECT id, priority, title, note, create_time, target_end_time, actual_done_time, is_pinned FROM todos WHERE is_done=0 ORDER BY create_time DESC;";
 
     sqlite3_stmt* stmt = nullptr;
     int rc = sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr);
@@ -133,6 +141,9 @@ bool CSQLiteManager::LoadItems(std::vector<TodoItem>& items, bool isDone)
         if (doneTime > 0) {
             item.actualDoneTime = CTime(doneTime);
         }
+        
+        // 读取 is_pinned
+        item.isPinned = (sqlite3_column_int(stmt, 7) != 0);
 
         item.isDone = isDone;
         items.push_back(item);
@@ -175,8 +186,8 @@ bool CSQLiteManager::SaveAll(const TodoDataManager& manager)
 bool CSQLiteManager::SaveTodo(const TodoItem& item)
 {
     const char* sql =
-        "INSERT INTO todos (priority, title, note, create_time, target_end_time, actual_done_time, is_done) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?);";
+        "INSERT INTO todos (priority, title, note, create_time, target_end_time, actual_done_time, is_done, is_pinned) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
 
     sqlite3_stmt* stmt = nullptr;
     int rc = sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr);
@@ -203,6 +214,7 @@ bool CSQLiteManager::SaveTodo(const TodoItem& item)
     }
 
     sqlite3_bind_int(stmt, 7, item.isDone ? 1 : 0);
+    sqlite3_bind_int(stmt, 8, item.isPinned ? 1 : 0);
 
     rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
@@ -213,7 +225,7 @@ bool CSQLiteManager::SaveTodo(const TodoItem& item)
 bool CSQLiteManager::UpdateTodo(const TodoItem& item)
 {
     const char* sql =
-        "UPDATE todos SET priority=?, title=?, note=?, target_end_time=?, actual_done_time=?, is_done=? "
+        "UPDATE todos SET priority=?, title=?, note=?, target_end_time=?, actual_done_time=?, is_done=?, is_pinned=? "
         "WHERE id=?;";
 
     sqlite3_stmt* stmt = nullptr;
@@ -232,7 +244,8 @@ bool CSQLiteManager::UpdateTodo(const TodoItem& item)
     sqlite3_bind_int64(stmt, 4, item.targetEndTime.GetTime());
     sqlite3_bind_int64(stmt, 5, item.actualDoneTime.GetTime());
     sqlite3_bind_int(stmt, 6, item.isDone ? 1 : 0);
-    sqlite3_bind_int(stmt, 7, item.id);
+    sqlite3_bind_int(stmt, 7, item.isPinned ? 1 : 0);
+    sqlite3_bind_int(stmt, 8, item.id);
 
     rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);

@@ -29,6 +29,9 @@
 #define ID_LANGUAGE_CHINESE            3016
 #define ID_LANGUAGE_ENGLISH            3017
 #define ID_TODO_EXPORT_TXT             3018
+#define ID_CONTEXT_EDIT                3019
+#define ID_CONTEXT_PIN                 3020
+#define ID_WINDOW_TOPMOST              3021
 #define ID_APP_ABOUT                   0xE140
 #define ID_APP_EXIT                    0xE141
 

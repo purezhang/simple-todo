@@ -27,8 +27,7 @@ public:
         REFLECTED_NOTIFY_CODE_HANDLER(NM_CLICK, OnClick)
         REFLECTED_NOTIFY_CODE_HANDLER(NM_DBLCLK, OnDblClick)
         REFLECTED_NOTIFY_CODE_HANDLER(LVN_KEYDOWN, OnKeyDown)
-        // 【调试】临时禁用自定义绘制，排除颜色问题
-        // REFLECTED_NOTIFY_CODE_HANDLER(NM_CUSTOMDRAW, OnCustomDraw)
+        REFLECTED_NOTIFY_CODE_HANDLER(NM_CUSTOMDRAW, OnCustomDraw)
         REFLECTED_NOTIFY_CODE_HANDLER(NM_RCLICK, OnRClick)
         REFLECTED_NOTIFY_CODE_HANDLER(LVN_GETDISPINFO, OnGetDispInfo)
         DEFAULT_REFLECTION_HANDLER()
@@ -84,6 +83,9 @@ public:
                     // 准备数据
                     CString strDate = pItem->createTime.Format(_T("%Y/%m/%d"));
                     CString strPriority = pItem->GetPriorityString();
+                    if (pItem->isPinned && !m_isDoneList) {
+                        strPriority = _T("📌 ") + strPriority;
+                    }
                     CString strTitle(pItem->title.c_str());
                     CString strTime = m_isDoneList ? pItem->GetDoneTimeString() : pItem->GetCreateTimeString();
 
@@ -93,17 +95,17 @@ public:
                     lvi.iItem = i;
                     
                     if (!m_isDoneList) {
-                        // Todo 列表：[0]日期 [1]优先级 [2]标题 [3]时间 [4]截止
+                        // Todo 列表：[0]创建日期 [1]优先级 [2]标题 [3]截止时间
                         lvi.iSubItem = 0;
                         lvi.pszText = (LPTSTR)(LPCTSTR)strDate;
                         int idx = InsertItem(&lvi);
 
                         SetItemText(idx, 1, (LPTSTR)(LPCTSTR)strPriority);
                         SetItemText(idx, 2, (LPTSTR)(LPCTSTR)strTitle);
-                        SetItemText(idx, 3, (LPTSTR)(LPCTSTR)strTime);
+                        // 移除原来的第3列(创建时间)
                         
                         CString strEndTime = pItem->GetEndTimeString();
-                        SetItemText(idx, 4, (LPTSTR)(LPCTSTR)strEndTime);
+                        SetItemText(idx, 3, (LPTSTR)(LPCTSTR)strEndTime);
                     } 
                     else {
                         // Done 列表：保持原样 [0]优先级 [1]标题 [2]完成时间
@@ -175,15 +177,21 @@ public:
     LRESULT OnClick(int, LPNMHDR pnmh, BOOL&) {
         NMITEMACTIVATE* pItemAct = reinterpret_cast<NMITEMACTIVATE*>(pnmh);
 
-        if (pItemAct->iItem >= 0 && !m_isDoneList) {
-            // Todo 列表：点击复选框完成任务
-            LVHITTESTINFO hti = {0};
-            hti.pt = pItemAct->ptAction;
-            SubItemHitTest(&hti);
+        if (pItemAct->iItem >= 0) {
+            // 通知父窗口更新详情面板
+            // 使用自定义消息或扩展当前消息处理
+            ::PostMessage(GetParent(), WM_NOTIFY, 0, reinterpret_cast<LPARAM>(pnmh));
+            
+            if (!m_isDoneList) {
+                // Todo 列表：点击复选框完成任务
+                LVHITTESTINFO hti = {0};
+                hti.pt = pItemAct->ptAction;
+                SubItemHitTest(&hti);
 
-            if (hti.iItem == pItemAct->iItem && hti.iSubItem == 1) {
-                // 点击的是描述列，可以切换完成状态
-                NotifyParentCompleteTask(pItemAct->iItem);
+                if (hti.iItem == pItemAct->iItem && hti.iSubItem == 1) {
+                    // 点击的是描述列，可以切换完成状态
+                    NotifyParentCompleteTask(pItemAct->iItem);
+                }
             }
         }
 
@@ -231,25 +239,31 @@ public:
                 return CDRF_NOTIFYITEMDRAW;
 
             case CDDS_ITEMPREPAINT: {
+                // 如果被选中，使用系统默认绘制，忽略自定义颜色
+                if (pLVCD->nmcd.uItemState & CDIS_SELECTED) {
+                    return CDRF_DODEFAULT;
+                }
+
                 const TodoItem* pItem = m_pDataManager->GetItemAt(
                     static_cast<int>(pLVCD->nmcd.dwItemSpec), m_isDoneList);
+                
                 if (pItem) {
-                    // 根据优先级设置颜色
                     if (m_isDoneList) {
-                        // 已完成的任务使用灰色
-                        pLVCD->clrText = RGB(100, 100, 100);
+                        // 已完成：灰色
+                        pLVCD->clrText = RGB(128, 128, 128);
                     } else {
-                        pLVCD->clrText = pItem->GetPriorityColor();
-                    }
-
-                    // 设置选中行的背景色
-                    if (pLVCD->nmcd.uItemState & CDIS_SELECTED) {
-                        pLVCD->clrTextBk = RGB(200, 220, 240);
-                    } else {
-                        pLVCD->clrTextBk = RGB(255, 255, 255);
+                        // 待办：根据优先级着色
+                        // P0: 红色, P1: 深橙/赭色 (避免纯黄看不清)
+                        switch (pItem->priority) {
+                            case Priority::P0: pLVCD->clrText = RGB(200, 0, 0); break;
+                            case Priority::P1: pLVCD->clrText = RGB(180, 100, 0); break;
+                            case Priority::P2: pLVCD->clrText = RGB(0, 0, 0); break; // 默认黑
+                            case Priority::P3: pLVCD->clrText = RGB(100, 100, 100); break; // 低优灰
+                            default: pLVCD->clrText = RGB(0, 0, 0); break;
+                        }
                     }
                 }
-                return CDRF_DODEFAULT;
+                return CDRF_DODEFAULT; // 让系统继续绘制文本，但使用我们设置的颜色
             }
 
             case CDDS_SUBITEM | CDDS_ITEMPREPAINT:
@@ -306,19 +320,22 @@ public:
                         CString strValue;
                         switch (pDispInfo->item.iSubItem) {
                             case 0:
-                                strValue = pItem->GetPriorityString();
+                                // [0] 这里的逻辑稍微有点复杂，因为 Done 和 Todo 第一列不一样
+                                if (m_isDoneList) strValue = pItem->GetPriorityString();
+                                else strValue = pItem->createTime.Format(_T("%Y/%m/%d")); // 创建日期
                                 break;
                             case 1:
-                                strValue = pItem->title.c_str();
+                                // [1]
+                                if (m_isDoneList) strValue = pItem->title.c_str();
+                                else strValue = pItem->GetPriorityString(); // 优先级
                                 break;
                             case 2:
-                                if (m_isDoneList) {
-                                    strValue = pItem->GetDoneTimeString();
-                                } else {
-                                    strValue = pItem->GetCreateTimeString();
-                                }
+                                // [2]
+                                if (m_isDoneList) strValue = pItem->GetDoneTimeString();
+                                else strValue = pItem->title.c_str(); // 标题
                                 break;
                             case 3:
+                                // [3] Todo 列表的截止时间
                                 if (!m_isDoneList) {
                                     strValue = pItem->GetEndTimeString();
                                 }
