@@ -1,7 +1,0 @@
-D:\MyProject\ClaudeData\simple-todo\scripts\compile_main.ps1 : 找不到接受实际参数“Release”的位置形式参数。
-所在位置 行:1 字符: 1
-+ .\compile_main.ps1 --build Release
-+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : InvalidArgument: (:) [compile_main.ps1]，ParameterBindingException
-    + FullyQualifiedErrorId : PositionalParameterNotFound,compile_main.ps1
- 

@@ -528,7 +528,10 @@ LRESULT CMainFrame::OnCommand(UINT /*uMsg*/, WPARAM wParam, LPARAM lParam, BOOL&
         {
             // 使用当前选中的任务项
             if (m_nSelectedIndex >= 0) {
-                return OnTodoEdit(0, MAKELPARAM(m_nSelectedIndex, m_bSelectedIsDone ? 1 : 0), 0, bHandled);
+                DebugLog(_T("OnCommand: Handling ID_CONTEXT_EDIT with saved index=%d, isDoneList=%d\n"), m_nSelectedIndex, m_bSelectedIsDone);
+                LRESULT result = OnTodoEdit(0, 0, MAKELPARAM(m_nSelectedIndex, m_bSelectedIsDone ? 1 : 0), bHandled);
+                DebugLog(_T("OnCommand: OnTodoEdit returned %ld\n"), result);
+                return result;
             }
             break;
         }
@@ -556,11 +559,11 @@ LRESULT CMainFrame::OnCommand(UINT /*uMsg*/, WPARAM wParam, LPARAM lParam, BOOL&
             bool isDoneList = HIWORD(lParam) != 0;
 
             if (id == ID_TODO_COMPLETE) {
-                return OnTodoComplete(0, MAKELPARAM(index, isDoneList ? 1 : 0), 0, bHandled);
+                return OnTodoComplete(0, 0, MAKELPARAM(index, isDoneList ? 1 : 0), bHandled);
             } else if (id == ID_TODO_EDIT) {
-                return OnTodoEdit(0, MAKELPARAM(index, isDoneList ? 1 : 0), 0, bHandled);
+                return OnTodoEdit(0, 0, MAKELPARAM(index, isDoneList ? 1 : 0), bHandled);
             } else if (id == ID_TODO_CONTEXT_MENU) {
-                return OnTodoContextMenu(0, MAKELPARAM(index, isDoneList ? 1 : 0), 0, bHandled);
+                return OnTodoContextMenu(0, 0, MAKELPARAM(index, isDoneList ? 1 : 0), bHandled);
             }
         }
         break;
@@ -1031,11 +1034,11 @@ LRESULT CMainFrame::OnTodoEdit(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, 
     return 0;
 }
 
-LRESULT CMainFrame::OnTodoContextMenu(UINT /*uMsg*/, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
+LRESULT CMainFrame::OnTodoContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, BOOL& bHandled)
 {
-    // 从 wParam 获取索引和是否为 Done 列表
-    int index = LOWORD(wParam);
-    bool isDoneList = HIWORD(wParam) != 0;
+    // 从 lParam 获取索引和是否为 Done 列表
+    int index = LOWORD(lParam);
+    bool isDoneList = HIWORD(lParam) != 0;
 
     TCHAR szDebug[256];
     _stprintf_s(szDebug, _T("OnTodoContextMenu: index=%d, isDoneList=%d\n"), index, isDoneList);
