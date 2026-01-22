@@ -35,3 +35,11 @@ nul
 
 # PowerShell transcript
 *_transcript.txt
+
+# IDE specific
+.claude/
+.trae/
+
+# Scripts directory (ignore obj files but keep scripts)
+scripts/*.obj
+scripts/vc140.pdb
