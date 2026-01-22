@@ -89,4 +89,4 @@
 - **CSV**：包含任务的所有字段，可用于在其他应用中导入和编辑
 
 ### 数据存储位置
-- 数据存储在 `bin/x64/Debug/data/simpletodo.db` 或 `bin/x64/Release/data/simpletodo.db` 文件中
+- 数据存储在 `data/simpletodo.db` 文件中
