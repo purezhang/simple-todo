@@ -30,11 +30,11 @@
 
 ## 软件截图
 
-### 主界面
-![主界面截图](docs/Screenshots/PixPin_2026-01-22_13-32-00.png)
-
-### 任务管理
-![任务管理截图](docs/Screenshots/f8853897-234e-4ba5-82e8-5dc2d021d612.png)
+### 预览
+![预览截图1](docs/Screenshots/v0.3.0/v0.3.0-01.png)
+![预览截图2](docs/Screenshots/v0.3.0/v0.3.0-02.png)
+![预览截图3](docs/Screenshots/v0.3.0/v0.3.0-03.png)
+![预览截图4](docs/Screenshots/v0.3.0/v0.3.0-04.png)
 
 ## 关于信息
 

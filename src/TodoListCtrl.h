@@ -379,6 +379,11 @@ private:
     TodoDataManager* m_pDataManager;
     bool m_isDoneList;
 
+    // 获取选中的项目索引
+    int GetSelectedIndex() {
+        return GetNextItem(-1, LVNI_SELECTED);
+    }
+
     // 通知父窗口完成任务
     void NotifyParentCompleteTask(int index) {
         ::PostMessage(GetParent(), WM_COMMAND, ID_TODO_COMPLETE,

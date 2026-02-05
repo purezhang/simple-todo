@@ -48,9 +48,21 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/,
     HRESULT hRes = ::CoInitialize(NULL);
     ATLASSERT(SUCCEEDED(hRes));
 
-    // 此处提供对 ATL 控件容器的支持:
-    // 【关键修复】必须初始化 ICC_LISTVIEW_CLASSES 才能使用 ListView 分组功能
-    AtlInitCommonControls(ICC_LISTVIEW_CLASSES | ICC_BAR_CLASSES);
+    // 初始化 ATL 控件
+    // 关键修复：添加 ICC_WIN95_CLASSES 和 ICC_STANDARD_CLASSES 确保菜单和普通控件正常显示
+    // ICC_BAR_CLASSES - 工具栏和状态栏
+    // ICC_LISTVIEW_CLASSES - ListView 控件
+    // ICC_WIN95_CLASSES - 菜单、按钮、编辑框等 Win95 风格控件
+    // ICC_STANDARD_CLASSES - 标准控件类
+    AtlInitCommonControls(ICC_BAR_CLASSES | ICC_LISTVIEW_CLASSES | ICC_WIN95_CLASSES | ICC_STANDARD_CLASSES);
+
+    // 【关键修复】强制加载 comctl32.dll v6.0 确保工具栏和 ReBar 在所有设备上正确显示
+    // 即使 manifest 已嵌入，手动加载可以解决某些旧系统上的兼容性问题
+    HMODULE hComCtl = LoadLibrary(L"comctl32.dll");
+    if (hComCtl) {
+        // 不释放库，让程序在整个生命周期中使用 v6.0
+        OutputDebugString(_T("Loaded comctl32.dll for v6.0 support\n"));
+    }
 
     hRes = _Module.Init(NULL, hInstance);
     ATLASSERT(SUCCEEDED(hRes));
@@ -63,7 +75,16 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/,
 
         CMainFrame wndMain;
 
-        if (wndMain.CreateEx() == NULL)
+        // 自己加载菜单，确保使用正确的模块句柄
+        HMODULE hModule = GetModuleHandle(NULL);
+        HMENU hMenu = ::LoadMenu(hModule, MAKEINTRESOURCE(IDR_MAINFRAME));
+        if (!hMenu) {
+            // 备用方案
+            hMenu = ::LoadMenu(_Module.GetResourceInstance(), MAKEINTRESOURCE(IDR_MAINFRAME));
+        }
+
+        // 使用 Create() 方法，传递正确加载的菜单
+        if (wndMain.Create(NULL, NULL, _T("Simple Todo"), WS_OVERLAPPEDWINDOW, 0, hMenu) == NULL)
         {
             ATLTRACE(_T("主窗口创建失败!\r\n"));
             return 1;

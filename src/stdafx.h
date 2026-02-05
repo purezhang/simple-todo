@@ -15,6 +15,7 @@
 #include <atlbase.h>
 #include <atlstr.h>
 #include <atltime.h>
+#include <atltypes.h>
 
 // Common Controls v6 Manifest (Required for Group View)
 #pragma comment(linker, "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
@@ -53,6 +54,7 @@ extern "C" {
 #include <WTL/atlctrls.h>
 #include <WTL/atldlgs.h>
 #include <WTL/atlsplit.h>
+#include <WTL/atlcrack.h>
 
 // Resource headers
 #include "Resource.h"
