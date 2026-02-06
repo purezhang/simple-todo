@@ -151,13 +151,13 @@ LRESULT CMainFrame::OnCreate(UINT, WPARAM, LPARAM, BOOL&)
     TBBUTTONINFO tbbi = { sizeof(TBBUTTONINFO) };
     tbbi.dwMask = TBIF_SIZE;
     
-    tbbi.cx = 45;
+    tbbi.cx = 50;
     m_toolbar.SetButtonInfo(ID_WINDOW_TOPMOST, &tbbi);
-    
-    tbbi.cx = 45;
+
+    tbbi.cx = 50;
     m_toolbar.SetButtonInfo(ID_TIME_FILTER, &tbbi);
-    
-    tbbi.cx = 45;
+
+    tbbi.cx = 50;
     m_toolbar.SetButtonInfo(ID_TODO_ADD, &tbbi);
 
     // 保存 ToolBar 句柄用于消息识别
@@ -172,35 +172,38 @@ LRESULT CMainFrame::OnCreate(UINT, WPARAM, LPARAM, BOOL&)
     rbbiToolbar.cx = 350;
     m_rebar.InsertBand(-1, &rbbiToolbar);
 
-    REBARBANDINFO rbbi = { sizeof(REBARBANDINFO) };
-    m_searchLabel.Create(m_rebar, rcDefault, L"🔍 ",
+    // 创建搜索框容器窗口（用于组合🔍图标和输入框）
+    CStatic m_searchContainer;
+    m_searchContainer.Create(m_rebar, rcDefault, NULL,
+        WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN);
+
+    // 创建搜索图标标签
+    m_searchLabel.Create(m_searchContainer, rcDefault, L"🔍 ",
         WS_CHILD | WS_VISIBLE,
         0, ATL_IDW_TOOLBAR + 10);
 
-    m_searchEdit.Create(m_rebar, rcDefault, NULL,
+    // 创建搜索输入框
+    m_searchEdit.Create(m_searchContainer, rcDefault, NULL,
         WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL | ES_LEFT,
         0, ID_SEARCH_EDIT);
 
-    // 设置搜索框字体和样式
+    // 设置搜索框字体
     m_searchEdit.SetFont(m_fontList);
+    m_searchLabel.SetFont(m_fontList);
 
+    // 布局：容器内图标在左，输入框在右
+    m_searchLabel.MoveWindow(2, 3, 20, 18);
+    m_searchEdit.MoveWindow(22, 1, 120, 20);  // 输入框宽度120px
+
+    // 整个容器作为一个 ReBar band
     REBARBANDINFO rbbiSearch = { sizeof(REBARBANDINFO) };
     rbbiSearch.fMask = RBBIM_STYLE | RBBIM_CHILD | RBBIM_CHILDSIZE | RBBIM_SIZE;
     rbbiSearch.fStyle = RBBS_CHILDEDGE | RBBS_FIXEDBMP | RBBS_NOGRIPPER;
-    rbbiSearch.hwndChild = m_searchLabel;
-    rbbiSearch.cxMinChild = 0;
-    rbbiSearch.cyMinChild = 20;
-    rbbiSearch.cx = 30;
+    rbbiSearch.hwndChild = m_searchContainer;
+    rbbiSearch.cxMinChild = 145;  // 容器总宽度：图标20 + 输入框120 + 边距
+    rbbiSearch.cyMinChild = 24;
+    rbbiSearch.cx = 145;
     m_rebar.InsertBand(-1, &rbbiSearch);
-
-    REBARBANDINFO rbbiEdit = { sizeof(REBARBANDINFO) };
-    rbbiEdit.fMask = RBBIM_STYLE | RBBIM_CHILD | RBBIM_CHILDSIZE | RBBIM_SIZE;
-    rbbiEdit.fStyle = RBBS_CHILDEDGE | RBBS_FIXEDBMP | RBBS_NOGRIPPER;
-    rbbiEdit.hwndChild = m_searchEdit;
-    rbbiEdit.cxMinChild = 200;
-    rbbiEdit.cyMinChild = 21;
-    rbbiEdit.cx = 200;
-    m_rebar.InsertBand(-1, &rbbiEdit);
 
     // 添加项目筛选下拉框
     m_projectFilter.Create(m_hWnd, rcDefault, NULL,
@@ -223,13 +226,15 @@ LRESULT CMainFrame::OnCreate(UINT, WPARAM, LPARAM, BOOL&)
     rbbiProject.cx = 100;
     m_rebar.InsertBand(-1, &rbbiProject);
 
-    // 让项目筛选靠右（通过设置较大的cx使其占据剩余空间）
-    REBARBANDINFO rbbiProjectFill = { sizeof(REBARBANDINFO) };
-    rbbiProjectFill.fMask = RBBIM_STYLE | RBBIM_CHILD | RBBIM_SIZE;
-    rbbiProjectFill.fStyle = RBBS_CHILDEDGE | RBBS_FIXEDBMP | RBBS_NOGRIPPER;
-    rbbiProjectFill.hwndChild = m_projectFilter;
-    rbbiProjectFill.cx = -1;  // 占据剩余空间
-    m_rebar.InsertBand(-1, &rbbiProjectFill);
+    // 添加左侧填充控件，让项目筛选靠右
+    CStatic m_spacer;
+    m_spacer.Create(m_rebar, rcDefault, NULL, WS_CHILD | WS_VISIBLE);
+    REBARBANDINFO rbbiSpacer = { sizeof(REBARBANDINFO) };
+    rbbiSpacer.fMask = RBBIM_STYLE | RBBIM_CHILD | RBBIM_SIZE;
+    rbbiSpacer.fStyle = RBBS_CHILDEDGE | RBBS_FIXEDBMP | RBBS_NOGRIPPER;
+    rbbiSpacer.hwndChild = m_spacer;
+    rbbiSpacer.cx = 0;  // 填充剩余空间
+    m_rebar.InsertBand(-1, &rbbiSpacer);
 
     m_mainSplitter.Create(m_hWnd, rcDefault, NULL,
         WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS);
@@ -451,11 +456,26 @@ LRESULT CMainFrame::OnSize(UINT, WPARAM, LPARAM, BOOL& bHandled)
 
     int toolbarHeight = 0;
     if (m_rebar.IsWindow()) {
-        m_rebar.MoveWindow(0, 0, rcClient.right, 30);
+        RECT rcRebarWin, rcRebarClient;
+        m_rebar.GetWindowRect(&rcRebarWin);
+        m_rebar.GetClientRect(&rcRebarClient);
+        toolbarHeight = rcRebarClient.bottom - rcRebarClient.top;
 
-        RECT rcRebar;
-        m_rebar.GetClientRect(&rcRebar);
-        int toolbarHeight = rcRebar.bottom - rcRebar.top;
+        m_rebar.MoveWindow(0, 0, rcClient.right, toolbarHeight);
+
+#ifdef _DEBUG
+        RECT rcSplitterWin;
+        m_mainSplitter.GetWindowRect(&rcSplitterWin);
+        RECT rcSplitterClient;
+        m_mainSplitter.GetClientRect(&rcSplitterClient);
+
+        TCHAR szDebug[512];
+        _stprintf_s(szDebug, _T("[OnSize] ReBar WinRect=(%d,%d,%d,%d) ClientRect.height=%d, Splitter WinRect.top=%d, Client.top=%d\n"),
+            rcRebarWin.left, rcRebarWin.top, rcRebarWin.right, rcRebarWin.bottom,
+            toolbarHeight,
+            rcSplitterWin.top, rcSplitterClient.top);
+        ::OutputDebugString(szDebug);
+#endif
     }
 
     if (m_mainSplitter.IsWindow()) {

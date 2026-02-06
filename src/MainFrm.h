@@ -87,6 +87,8 @@ private:
     // 搜索框
     CEdit m_searchEdit;
     CStatic m_searchLabel;
+    CStatic m_searchContainer;  // 搜索框容器：组合图标和输入框
+    CStatic m_spacer;          // ReBar 填充控件，用于右侧布局
 
     // 项目筛选下拉框
     CComboBox m_projectFilter;
