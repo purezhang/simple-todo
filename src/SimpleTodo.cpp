@@ -90,8 +90,8 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/,
             return 1;
         }
 
-        // 设置窗口默认尺寸为 400x600
-        wndMain.SetWindowPos(NULL, 0, 0, 400, 600, SWP_NOZORDER | SWP_NOMOVE);
+        // 设置窗口默认尺寸为 500x600
+        wndMain.SetWindowPos(NULL, 0, 0, 500, 600, SWP_NOZORDER | SWP_NOMOVE);
 
         wndMain.ShowWindow(nCmdShow);
 

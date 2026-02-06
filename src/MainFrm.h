@@ -39,8 +39,6 @@ public:
     LRESULT OnTodoAdd(WORD, WORD, HWND, BOOL&);
     LRESULT OnTodoExport(WORD, WORD, HWND, BOOL&);
     LRESULT OnTodoExportTxt(WORD, WORD, HWND, BOOL&);
-    LRESULT OnExpandAll(WORD, WORD, HWND, BOOL&);
-    LRESULT OnCollapseAll(WORD, WORD, HWND, BOOL&);
     LRESULT OnFileExit(WORD, WORD, HWND, BOOL&);
     LRESULT OnAppAbout(WORD, WORD, HWND, BOOL&);
     LRESULT OnLanguageChinese(WORD, WORD, HWND, BOOL&);
@@ -57,11 +55,19 @@ public:
     LRESULT OnContextPriorityP2(WORD, WORD, HWND, BOOL&);
     LRESULT OnContextPriorityP3(WORD, WORD, HWND, BOOL&);
     LRESULT OnToggleTopmost(WORD, WORD, HWND, BOOL&);
+    LRESULT OnToggleTimeFilter(WORD, WORD, HWND, BOOL&);
+    LRESULT OnProjectFilterChanged(WORD, WORD, HWND, BOOL&);
 
     virtual BOOL PreTranslateMessage(MSG* pMsg);
     virtual BOOL OnIdle();
 
 private:
+    // 工具栏按钮文字定义
+    static LPCTSTR TOPMOST_TEXT_NORMAL;
+    static LPCTSTR TOPMOST_TEXT_CHECKED;
+    static LPCTSTR TIME_FILTER_TODAY;
+    static LPCTSTR TIME_FILTER_WEEK;
+    static LPCTSTR TIME_FILTER_ALL;
     CHorSplitterWindow m_mainSplitter;
     CTodoListCtrl m_todoList;
     CTodoListCtrl m_doneList;
@@ -78,6 +84,15 @@ private:
     CToolBarCtrl m_toolbar;
     CReBarCtrl m_rebar;
 
+    // 搜索框
+    CEdit m_searchEdit;
+    CStatic m_searchLabel;
+
+    // 项目筛选下拉框
+    CComboBox m_projectFilter;
+    std::wstring m_currentProjectFilter;  // 空=全部
+    void UpdateProjectFilterList();
+
     TodoDataManager m_dataManager;
 
     int m_nSelectedIndex;
@@ -87,6 +102,15 @@ private:
     bool m_bTopmost = false;
     bool m_bFirstSize = true;
     bool m_bDetailVisible = false;
+
+    // 筛选状态
+    enum class TimeFilter { All = 0, Today = 1, ThisWeek = 2 };
+    TimeFilter m_timeFilter = TimeFilter::All;
+
+    // 搜索相关
+    static const UINT_PTR SEARCH_TIMER_ID = 2001;
+    CString m_searchKeyword;
+    void OnSearchChanged();
 
     CFont m_fontList;
     CImageList m_imgList;
@@ -105,4 +129,13 @@ private:
 
     void ExportToCSV();
     void ExportToTodoTxt();
+
+    // 窗口设置保存/加载
+    void LoadWindowSettings();
+    void SaveWindowSettings();
+
+private:
+    // 窗口设置相关
+    static const TCHAR* REG_KEY_PATH;
+    int m_nSplitterPos;
 };

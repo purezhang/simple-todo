@@ -46,6 +46,21 @@ public:
         m_isDoneList = isDone;
     }
 
+    // 设置搜索关键词
+    void SetSearchKeyword(const std::wstring& keyword) {
+        m_searchKeyword = keyword;
+    }
+
+    // 设置项目筛选关键词
+    void SetProjectFilter(const std::wstring& project) {
+        m_projectFilter = project;
+    }
+
+    // 设置时间筛选（0=全部, 1=今天, 2=本周）
+    void SetTimeFilter(int timeFilter) {
+        m_timeFilter = timeFilter;
+    }
+
     // 获取是否为 Done 列表
     bool IsDoneList() const {
         return m_isDoneList;
@@ -63,23 +78,24 @@ public:
             TODO_DEBUG_LOGF(_T("RefreshList: isDoneList=%d, itemCount=%d\n"),
                 m_isDoneList, m_pDataManager->GetItemCount(m_isDoneList));
 
-            // 排序数据 (新增)
-            // 规则：1. 日期(降序) 2. 优先级(升序) 3. 截止时间(升序)
+            // 排序数据
             m_pDataManager->Sort(m_isDoneList);
+
+            // 获取搜索过滤后的索引
+            std::vector<int> filteredIndices = m_pDataManager->Search(m_searchKeyword, m_projectFilter, m_isDoneList, m_timeFilter);
 
             // 清空现有项目
             DeleteAllItems();
-            
+
             // 确保禁用分组
             ListView_EnableGroupView(m_hWnd, FALSE);
             ListView_RemoveAllGroups(m_hWnd);
 
-            // 直接插入真实项目
-            int itemCount = m_pDataManager->GetItemCount(m_isDoneList);
-            for (int i = 0; i < itemCount; i++) {
-                const TodoItem* pItem = m_pDataManager->GetItemAt(i, m_isDoneList);
+            // 直接插入过滤后的项目
+            for (int i = 0; i < static_cast<int>(filteredIndices.size()); i++) {
+                int originalIndex = filteredIndices[i];
+                const TodoItem* pItem = m_pDataManager->GetItemAt(originalIndex, m_isDoneList);
                 if (pItem) {
-                    // 插入项目
                     // 准备数据
                     CString strDate = pItem->createTime.Format(_T("%Y/%m/%d"));
                     CString strPriority = pItem->GetPriorityString();
@@ -93,7 +109,7 @@ public:
                     LVITEM lvi = {0};
                     lvi.mask = LVIF_TEXT;
                     lvi.iItem = i;
-                    
+
                     if (!m_isDoneList) {
                         // Todo 列表：[0]创建日期 [1]优先级 [2]标题 [3]截止时间
                         lvi.iSubItem = 0;
@@ -102,11 +118,10 @@ public:
 
                         SetItemText(idx, 1, (LPTSTR)(LPCTSTR)strPriority);
                         SetItemText(idx, 2, (LPTSTR)(LPCTSTR)strTitle);
-                        // 移除原来的第3列(创建时间)
-                        
+
                         CString strEndTime = pItem->GetEndTimeString();
                         SetItemText(idx, 3, (LPTSTR)(LPCTSTR)strEndTime);
-                    } 
+                    }
                     else {
                         // Done 列表：保持原样 [0]优先级 [1]标题 [2]完成时间
                         lvi.iSubItem = 0;
@@ -116,13 +131,13 @@ public:
                         SetItemText(idx, 1, (LPTSTR)(LPCTSTR)strTitle);
                         SetItemText(idx, 2, (LPTSTR)(LPCTSTR)strTime);
                     }
-                    
-                    // 仅在 Debug 模式记录详细插入日志
-                    TODO_DEBUG_LOGF(_T("  Inserted item %d: %s\n"), i, pItem->title.c_str());
+
+                    TODO_DEBUG_LOGF(_T("  Inserted item %d (orig=%d): %s\n"), i, originalIndex, pItem->title.c_str());
                 }
             }
 
-            TODO_DEBUG_LOGF(_T("RefreshList complete: inserted %d items\n"), itemCount);
+            TODO_DEBUG_LOGF(_T("RefreshList complete: inserted %d items (filtered from %d)\n"),
+                filteredIndices.size(), m_pDataManager->GetItemCount(m_isDoneList));
         }
     }
     
@@ -378,6 +393,9 @@ public:
 private:
     TodoDataManager* m_pDataManager;
     bool m_isDoneList;
+    std::wstring m_searchKeyword;
+    std::wstring m_projectFilter;
+    int m_timeFilter;  // 时间筛选（0=全部, 1=今天, 2=本周）
 
     // 获取选中的项目索引
     int GetSelectedIndex() {

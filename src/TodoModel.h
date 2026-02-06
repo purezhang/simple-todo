@@ -10,6 +10,7 @@ struct TodoItem {
     Priority priority;
     std::wstring title;
     std::wstring note;
+    std::wstring project;      // 分类名称
     CTime createTime;
     CTime targetEndTime;
     CTime actualDoneTime;
@@ -218,6 +219,7 @@ public:
             it->priority = updatedItem.priority;
             it->title = updatedItem.title;
             it->note = updatedItem.note;
+            it->project = updatedItem.project;
             it->targetEndTime = updatedItem.targetEndTime;
             return true;
         }
@@ -228,5 +230,99 @@ public:
         todoItems.clear();
         doneItems.clear();
         nextId = 1;
+    }
+
+    // 搜索过滤（支持关键词、项目筛选和时间筛选）
+    // timeFilter: 0=全部, 1=今天, 2=本周
+    std::vector<int> Search(const std::wstring& keyword, const std::wstring& project, bool isDoneList, int timeFilter = 0) const {
+        TCHAR szDebug[512];
+        const auto& items = isDoneList ? doneItems : todoItems;
+        _stprintf_s(szDebug, _T("[搜索] START: keyword='%s', project='%s', timeFilter=%d, total=%zu\n"),
+            keyword.c_str(), project.c_str(), timeFilter, items.size());
+        ::OutputDebugString(szDebug);
+
+        std::vector<int> indices;
+
+        // 无筛选条件，返回所有
+        if (keyword.empty() && project.empty() && timeFilter == 0) {
+            for (int i = 0; i < static_cast<int>(items.size()); ++i) {
+                indices.push_back(i);
+            }
+            _stprintf_s(szDebug, _T("[搜索] END (无筛选): 返回 %zu 条\n"), indices.size());
+            ::OutputDebugString(szDebug);
+            return indices;
+        }
+
+        // 有筛选条件，逐条检查
+        for (int i = 0; i < static_cast<int>(items.size()); ++i) {
+            const auto& item = items[i];
+            bool failed = false;
+            CString failReason;
+
+            // 时间筛选
+            if (timeFilter != 0) {
+                // 根据任务类型选择正确的时间字段：已完成任务使用实际完成时间，待办任务使用创建时间
+                CTime itemDate;
+                if (isDoneList && item.actualDoneTime.GetTime() > 0) {
+                    // 已完成列表：使用实际完成时间进行筛选
+                    itemDate = item.actualDoneTime;
+                } else {
+                    // 待办列表 或 actualDoneTime 无效：使用创建时间
+                    itemDate = item.createTime;
+                }
+
+                CTime now = CTime::GetCurrentTime();
+                CTime todayStart(now.GetYear(), now.GetMonth(), now.GetDay(), 0, 0, 0);
+                CTime weekStart = todayStart - CTimeSpan(now.GetDayOfWeek() - 1, 0, 0, 0);
+
+                bool timeMatch = false;
+                if (timeFilter == 1) {  // 今天
+                    timeMatch = (itemDate.GetYear() == todayStart.GetYear() &&
+                                  itemDate.GetMonth() == todayStart.GetMonth() &&
+                                  itemDate.GetDay() == todayStart.GetDay());
+                    if (!timeMatch) {
+                        failed = true;
+                        failReason.Format(_T("时间[今天]: %s != %s"), itemDate.Format(_T("%Y/%m/%d")), todayStart.Format(_T("%Y/%m/%d")));
+                    }
+                } else if (timeFilter == 2) {  // 本周
+                    timeMatch = (itemDate >= weekStart);
+                    if (!timeMatch) {
+                        failed = true;
+                        failReason.Format(_T("时间[本周]: %s < %s"), itemDate.Format(_T("%Y/%m/%d")), weekStart.Format(_T("%Y/%m/%d")));
+                    }
+                }
+            }
+
+            // 项目筛选
+            if (!failed && !project.empty() && item.project != project) {
+                failed = true;
+                failReason.Format(_T("项目: '%s' != '%s'"), item.project.c_str(), project.c_str());
+            }
+
+            // 关键词筛选
+            if (!failed && !keyword.empty()) {
+                std::wstring lowerKeyword = keyword;
+                std::transform(lowerKeyword.begin(), lowerKeyword.end(), lowerKeyword.begin(), ::tolower);
+                std::wstring lowerTitle = item.title;
+                std::transform(lowerTitle.begin(), lowerTitle.end(), lowerTitle.begin(), ::tolower);
+                if (lowerTitle.find(lowerKeyword) == std::wstring::npos) {
+                    failed = true;
+                    failReason = _T("关键词不匹配");
+                }
+            }
+
+            // 输出每条记录的检查结果
+            if (failed) {
+                _stprintf_s(szDebug, _T("[搜索] SKIP [%d]: %s - %s\n"), i, item.title.c_str(), (LPCTSTR)failReason);
+            } else {
+                _stprintf_s(szDebug, _T("[搜索] PASS [%d]: %s\n"), i, item.title.c_str());
+                indices.push_back(i);
+            }
+            ::OutputDebugString(szDebug);
+        }
+
+        _stprintf_s(szDebug, _T("[搜索] END: 通过 %zu / %zu 条\n"), indices.size(), items.size());
+        ::OutputDebugString(szDebug);
+        return indices;
     }
 };

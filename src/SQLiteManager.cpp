@@ -43,8 +43,10 @@ bool CSQLiteManager::Initialize()
     }
 
     // 尝试添加 is_pinned 列 (如果不存在)
-    // 忽略错误，因为如果列已存在会失败，这是预期的
     sqlite3_exec(m_db, "ALTER TABLE todos ADD COLUMN is_pinned INTEGER DEFAULT 0;", nullptr, nullptr, nullptr);
+
+    // 尝试添加 project 列 (如果不存在)
+    sqlite3_exec(m_db, "ALTER TABLE todos ADD COLUMN project TEXT DEFAULT '';", nullptr, nullptr, nullptr);
 
     return true;
 }
@@ -57,10 +59,12 @@ bool CSQLiteManager::CreateTables()
         "priority INTEGER,"
         "title TEXT,"
         "note TEXT,"
+        "project TEXT,"
         "create_time INTEGER,"
         "target_end_time INTEGER,"
         "actual_done_time INTEGER,"
-        "is_done INTEGER);";
+        "is_done INTEGER,"
+        "is_pinned INTEGER);";
 
     char* errMsg = nullptr;
     int rc = sqlite3_exec(m_db, sql, nullptr, nullptr, &errMsg);
@@ -103,8 +107,8 @@ bool CSQLiteManager::LoadItems(std::vector<TodoItem>& items, bool isDone)
     ::OutputDebugString(szDebug);
 
     const char* sql = isDone ?
-        "SELECT id, priority, title, note, create_time, target_end_time, actual_done_time, is_pinned FROM todos WHERE is_done=1 ORDER BY create_time DESC;" :
-        "SELECT id, priority, title, note, create_time, target_end_time, actual_done_time, is_pinned FROM todos WHERE is_done=0 ORDER BY create_time DESC;";
+        "SELECT id, priority, title, note, project, create_time, target_end_time, actual_done_time, is_pinned FROM todos WHERE is_done=1 ORDER BY create_time DESC;" :
+        "SELECT id, priority, title, note, project, create_time, target_end_time, actual_done_time, is_pinned FROM todos WHERE is_done=0 ORDER BY create_time DESC;";
 
     sqlite3_stmt* stmt = nullptr;
     int rc = sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr);
@@ -127,23 +131,27 @@ bool CSQLiteManager::LoadItems(std::vector<TodoItem>& items, bool isDone)
         pText = sqlite3_column_text16(stmt, 3);
         if (pText) item.note = (const wchar_t*)pText;
 
-        sqlite3_int64 createTime = sqlite3_column_int64(stmt, 4);
+        // 读取 project
+        pText = sqlite3_column_text16(stmt, 4);
+        if (pText) item.project = (const wchar_t*)pText;
+
+        sqlite3_int64 createTime = sqlite3_column_int64(stmt, 5);
         item.createTime = CTime(createTime);
 
-        sqlite3_int64 endTime = sqlite3_column_int64(stmt, 5);
+        sqlite3_int64 endTime = sqlite3_column_int64(stmt, 6);
         if (endTime > 0) {
             item.targetEndTime = CTime(endTime);
         } else {
             item.targetEndTime = CTime::GetCurrentTime();
         }
 
-        sqlite3_int64 doneTime = sqlite3_column_int64(stmt, 6);
+        sqlite3_int64 doneTime = sqlite3_column_int64(stmt, 7);
         if (doneTime > 0) {
             item.actualDoneTime = CTime(doneTime);
         }
-        
+
         // 读取 is_pinned
-        item.isPinned = (sqlite3_column_int(stmt, 7) != 0);
+        item.isPinned = (sqlite3_column_int(stmt, 8) != 0);
 
         item.isDone = isDone;
         items.push_back(item);
@@ -186,8 +194,8 @@ bool CSQLiteManager::SaveAll(const TodoDataManager& manager)
 bool CSQLiteManager::SaveTodo(const TodoItem& item)
 {
     const char* sql =
-        "INSERT INTO todos (priority, title, note, create_time, target_end_time, actual_done_time, is_done, is_pinned) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
+        "INSERT INTO todos (priority, title, note, project, create_time, target_end_time, actual_done_time, is_done, is_pinned) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);";
 
     sqlite3_stmt* stmt = nullptr;
     int rc = sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr);
@@ -202,19 +210,22 @@ bool CSQLiteManager::SaveTodo(const TodoItem& item)
     std::wstring note = item.note;
     sqlite3_bind_text16(stmt, 3, note.c_str(), -1, SQLITE_TRANSIENT);
 
-    sqlite3_bind_int64(stmt, 4, item.createTime.GetTime());
-    sqlite3_bind_int64(stmt, 5, item.targetEndTime.GetTime());
+    std::wstring project = item.project;
+    sqlite3_bind_text16(stmt, 4, project.c_str(), -1, SQLITE_TRANSIENT);
+
+    sqlite3_bind_int64(stmt, 5, item.createTime.GetTime());
+    sqlite3_bind_int64(stmt, 6, item.targetEndTime.GetTime());
 
     // 对于未完成的任务，actualDoneTime 为 0 (表示 NULL)
     // 使用 SQLITE_NULL 来处理未完成的任务
     if (item.isDone && item.actualDoneTime.GetTime() > 0) {
-        sqlite3_bind_int64(stmt, 6, item.actualDoneTime.GetTime());
+        sqlite3_bind_int64(stmt, 7, item.actualDoneTime.GetTime());
     } else {
-        sqlite3_bind_null(stmt, 6);
+        sqlite3_bind_null(stmt, 7);
     }
 
-    sqlite3_bind_int(stmt, 7, item.isDone ? 1 : 0);
-    sqlite3_bind_int(stmt, 8, item.isPinned ? 1 : 0);
+    sqlite3_bind_int(stmt, 8, item.isDone ? 1 : 0);
+    sqlite3_bind_int(stmt, 9, item.isPinned ? 1 : 0);
 
     rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
@@ -225,7 +236,7 @@ bool CSQLiteManager::SaveTodo(const TodoItem& item)
 bool CSQLiteManager::UpdateTodo(const TodoItem& item)
 {
     const char* sql =
-        "UPDATE todos SET priority=?, title=?, note=?, target_end_time=?, actual_done_time=?, is_done=?, is_pinned=? "
+        "UPDATE todos SET priority=?, title=?, note=?, project=?, target_end_time=?, actual_done_time=?, is_done=?, is_pinned=? "
         "WHERE id=?;";
 
     sqlite3_stmt* stmt = nullptr;
@@ -241,11 +252,14 @@ bool CSQLiteManager::UpdateTodo(const TodoItem& item)
     std::wstring note = item.note;
     sqlite3_bind_text16(stmt, 3, note.c_str(), -1, SQLITE_TRANSIENT);
 
-    sqlite3_bind_int64(stmt, 4, item.targetEndTime.GetTime());
-    sqlite3_bind_int64(stmt, 5, item.actualDoneTime.GetTime());
-    sqlite3_bind_int(stmt, 6, item.isDone ? 1 : 0);
-    sqlite3_bind_int(stmt, 7, item.isPinned ? 1 : 0);
-    sqlite3_bind_int(stmt, 8, item.id);
+    std::wstring project = item.project;
+    sqlite3_bind_text16(stmt, 4, project.c_str(), -1, SQLITE_TRANSIENT);
+
+    sqlite3_bind_int64(stmt, 5, item.targetEndTime.GetTime());
+    sqlite3_bind_int64(stmt, 6, item.actualDoneTime.GetTime());
+    sqlite3_bind_int(stmt, 7, item.isDone ? 1 : 0);
+    sqlite3_bind_int(stmt, 8, item.isPinned ? 1 : 0);
+    sqlite3_bind_int(stmt, 9, item.id);
 
     rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);

@@ -26,6 +26,7 @@ CAddTodoDlg::CAddTodoDlg()
     m_item.priority = Priority::P1;
     m_item.title = L"";
     m_item.note = L"";
+    m_item.project = L"";
     m_item.createTime = CTime::GetCurrentTime();
     m_item.targetEndTime = CTime::GetCurrentTime(); // 默认今天24点
 
@@ -63,23 +64,44 @@ LRESULT CAddTodoDlg::OnInitDialog(UINT, WPARAM, LPARAM, BOOL&)
     m_dateTime = GetDlgItem(IDC_END_TIME_DATETIME);
     ::OutputDebugString(m_dateTime.IsWindow() ? _T("DateTime OK\n") : _T("DateTime FAILED\n"));
 
+    m_comboProject = GetDlgItem(IDC_PROJECT_COMBO);
+    ::OutputDebugString(m_comboProject.IsWindow() ? _T("Project Combo OK\n") : _T("Project Combo FAILED\n"));
+
     // 初始化优先级下拉框
     m_comboPriority.AddString(_T("P0 紧急"));
     m_comboPriority.AddString(_T("P1 重要"));
     m_comboPriority.AddString(_T("P2 普通"));
     m_comboPriority.AddString(_T("P3 暂缓"));
-    
+
+    // 初始化项目下拉框
+    UpdateProjectCombo();
+
     // 根据任务数据初始化控件
     // 1. 标题
     m_editTitle.SetWindowText(m_item.title.c_str());
-    
+
     // 2. 备注
     m_editNote.SetWindowText(m_item.note.c_str());
-    
+
     // 3. 优先级
     m_comboPriority.SetCurSel((int)m_item.priority);
-    
-    // 4. 日期时间
+
+    // 4. 项目
+    if (!m_item.project.empty()) {
+        int found = m_comboProject.FindStringExact(-1, m_item.project.c_str());
+        if (found >= 0) {
+            m_comboProject.SetCurSel(found);
+        } else {
+            // 如果项目不存在，添加到下拉框并选中
+            m_comboProject.AddString(m_item.project.c_str());
+            m_comboProject.SetCurSel(m_comboProject.GetCount() - 1);
+        }
+    } else {
+        // 默认选中"无"选项
+        m_comboProject.SetCurSel(0);
+    }
+
+    // 5. 日期时间
     {
         SYSTEMTIME st = {0};
         TimeToSystemTime(m_item.targetEndTime, st);
@@ -100,6 +122,21 @@ LRESULT CAddTodoDlg::OnOK(WORD, WORD, HWND, BOOL&)
     if (nSel >= 0 && nSel <= 3) {
         m_item.priority = (Priority)nSel;
     }
+
+    // 获取项目（CBS_DROPDOWN 可编辑，需用 GetWindowText）
+    CString strProject;
+    m_comboProject.GetWindowText(strProject);
+    strProject.Trim();
+    if (!strProject.IsEmpty() && strProject != L"[无]") {
+        m_item.project = strProject.GetString();
+    } else {
+        m_item.project.clear();
+    }
+
+    TCHAR szDebug[512];
+    _stprintf_s(szDebug, _T("OnOK: project='%s', title='%s'\n"),
+        m_item.project.c_str(), m_item.title.c_str());
+    ::OutputDebugString(szDebug);
 
     // 获取标题
     CString strTitle;
@@ -249,4 +286,27 @@ void CAddTodoDlg::ParseNaturalLanguage(const std::wstring& text)
         DateTime_SetSystemtime(m_dateTime, GDT_VALID, &st);
     }
     }
+}
+
+void CAddTodoDlg::UpdateProjectCombo()
+{
+    // 清空下拉框
+    m_comboProject.ResetContent();
+
+    // 添加"无"选项（表示不选择任何项目）
+    m_comboProject.AddString(L"[无]");
+
+    // 添加已有项目
+    for (const auto& proj : m_projects) {
+        m_comboProject.AddString(proj.c_str());
+    }
+
+    // 默认选中"无"
+    m_comboProject.SetCurSel(0);
+}
+
+LRESULT CAddTodoDlg::OnProjectSelChange(WORD, WORD, HWND, BOOL&)
+{
+    // 可以在这里处理项目选择变化
+    return 0;
 }

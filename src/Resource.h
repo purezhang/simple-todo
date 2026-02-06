@@ -12,6 +12,7 @@
 #define IDC_TODAY_BTN                  205
 #define IDC_TOMORROW_BTN               206
 #define IDC_THIS_WEEK_BTN              207
+#define IDC_PROJECT_COMBO              208
 #define ID_TODO_ADD                    3000
 #define ID_TODO_EXPORT                 3001
 #define ID_VIEW_EXPAND_ALL             3002
@@ -32,6 +33,9 @@
 #define ID_CONTEXT_EDIT                3019
 #define ID_CONTEXT_PIN                 3020
 #define ID_WINDOW_TOPMOST              3021
+#define ID_TIME_FILTER                 3022
+#define ID_SEARCH_EDIT                 3023
+#define ID_PROJECT_FILTER              3024
 #define ID_APP_ABOUT                   0xE140
 #define ID_APP_EXIT                    0xE141
 
