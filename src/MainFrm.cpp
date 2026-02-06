@@ -7,7 +7,9 @@
 // ReBar 子类化：转发 WM_COMMAND 消息给父窗口
 static WNDPROC g_originalReBarWndProc = nullptr;
 static HWND g_hToolbar = nullptr; // 保存 ToolBar 句柄用于识别
+static WNDPROC g_originalSearchContainerWndProc = nullptr; // 搜索框容器句柄
 
+// ReBar 子类化：转发 WM_COMMAND 消息给父窗口
 static LRESULT CALLBACK ReBarSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     if (uMsg == WM_COMMAND) {
@@ -35,7 +37,22 @@ static LRESULT CALLBACK ReBarSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam, L
     return CallWindowProc(g_originalReBarWndProc, hWnd, uMsg, wParam, lParam);
 }
 
-// ComboBox 子类化：转发 WM_COMMAND 消息给父窗口  
+// 搜索框容器子类化：转发 WM_COMMAND 消息给父窗口（ReBar）
+static LRESULT CALLBACK SearchContainerSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    if (uMsg == WM_COMMAND) {
+        ::OutputDebugString(_T("[SearchContainerSubclass] WM_COMMAND 转发给 ReBar\n"));
+        // 转发给父窗口（ReBar）
+        HWND hParent = ::GetParent(hWnd);
+        if (hParent) {
+            ::SendMessage(hParent, WM_COMMAND, wParam, lParam);
+        }
+        return 0;  // 阻止重复处理
+    }
+    return CallWindowProc(g_originalSearchContainerWndProc, hWnd, uMsg, wParam, lParam);
+}
+
+// ComboBox 子类化：转发 WM_COMMAND 消息给父窗口
 static WNDPROC g_originalComboWndProc = nullptr;
 static LRESULT CALLBACK ComboSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -141,12 +158,18 @@ LRESULT CMainFrame::OnCreate(UINT, WPARAM, LPARAM, BOOL&)
     // 工具栏按钮: 置顶 | 时间筛选 | 添加任务
     TBBUTTON buttons[] = {
         { I_IMAGENONE, ID_WINDOW_TOPMOST, TBSTATE_ENABLED, BTNS_BUTTON | BTNS_SHOWTEXT, {0}, 0, (INT_PTR)L"📌置顶" },
+        { 0, 0, 0, BTNS_SEP, {0}, 0, 0 },
         { I_IMAGENONE, ID_TIME_FILTER, TBSTATE_ENABLED, BTNS_BUTTON | BTNS_SHOWTEXT, {0}, 0, (INT_PTR)L"🏷全部" },
         { 0, 0, 0, BTNS_SEP, {0}, 0, 0 },
         { I_IMAGENONE, ID_TODO_ADD, TBSTATE_ENABLED, BTNS_BUTTON | BTNS_SHOWTEXT, {0}, 0, (INT_PTR)L"🆕新增" }
     };
 
-    m_toolbar.AddButtons(4, buttons);
+    m_toolbar.AddButtons(5, buttons);
+
+    int btnCount = m_toolbar.GetButtonCount();
+    TCHAR szDebug[256];
+    _stprintf_s(szDebug, _T("[OnCreate] ToolBar按钮数量=%d\n"), btnCount);
+    ::OutputDebugString(szDebug);
 
     TBBUTTONINFO tbbi = { sizeof(TBBUTTONINFO) };
     tbbi.dwMask = TBIF_SIZE;
@@ -194,6 +217,10 @@ LRESULT CMainFrame::OnCreate(UINT, WPARAM, LPARAM, BOOL&)
     // 布局：容器内图标在左，输入框在右
     m_searchLabel.MoveWindow(2, 3, 20, 18);
     m_searchEdit.MoveWindow(22, 1, 120, 20);  // 输入框宽度120px
+
+    // 子类化搜索框容器，转发 WM_COMMAND 消息给 ReBar
+    g_originalSearchContainerWndProc = (WNDPROC)::SetWindowLongPtr(m_searchContainer.m_hWnd, GWLP_WNDPROC, (LONG_PTR)SearchContainerSubclassProc);
+    ::OutputDebugString(_T("[OnCreate] 搜索框容器子类化完成\n"));
 
     // 整个容器作为一个 ReBar band
     REBARBANDINFO rbbiSearch = { sizeof(REBARBANDINFO) };
