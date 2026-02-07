@@ -36,6 +36,12 @@
 #define ID_TIME_FILTER                 3022
 #define ID_SEARCH_EDIT                 3023
 #define ID_PROJECT_FILTER              3024
+// 详情面板按钮
+#define IDC_PIN_BUTTON                 210
+#define IDC_CLOSE_BUTTON               211
+#define IDC_KEEP_BUTTON                212
+#define IDC_DISCARD_BUTTON             213
+
 #define ID_APP_ABOUT                   0xE140
 #define ID_APP_EXIT                    0xE141
 

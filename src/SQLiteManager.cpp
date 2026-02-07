@@ -102,9 +102,11 @@ bool CSQLiteManager::LoadAll(TodoDataManager& manager)
 
 bool CSQLiteManager::LoadItems(std::vector<TodoItem>& items, bool isDone)
 {
+#ifdef _DEBUG
     TCHAR szDebug[256];
     _stprintf_s(szDebug, _T("LoadItems: isDone=%d, start loading...\n"), isDone);
     ::OutputDebugString(szDebug);
+#endif
 
     const char* sql = isDone ?
         "SELECT id, priority, title, note, project, create_time, target_end_time, actual_done_time, is_pinned FROM todos WHERE is_done=1 ORDER BY create_time DESC;" :
@@ -114,8 +116,10 @@ bool CSQLiteManager::LoadItems(std::vector<TodoItem>& items, bool isDone)
     int rc = sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr);
 
     if (rc != SQLITE_OK) {
+#ifdef _DEBUG
         _stprintf_s(szDebug, _T("LoadItems: sqlite3_prepare failed, rc=%d\n"), rc);
         ::OutputDebugString(szDebug);
+#endif
         return false;
     }
 
@@ -157,14 +161,18 @@ bool CSQLiteManager::LoadItems(std::vector<TodoItem>& items, bool isDone)
         items.push_back(item);
         itemCount++;
 
+#ifdef _DEBUG
         _stprintf_s(szDebug, _T("  Loaded item: id=%d, title='%s'\n"), item.id, item.title.c_str());
         ::OutputDebugString(szDebug);
+#endif
     }
 
     sqlite3_finalize(stmt);
 
+#ifdef _DEBUG
     _stprintf_s(szDebug, _T("LoadItems: Completed. Loaded %d items\n"), itemCount);
     ::OutputDebugString(szDebug);
+#endif
     return true;
 }
 
@@ -300,4 +308,9 @@ bool CSQLiteManager::MoveTodo(UINT id, bool isDone)
     sqlite3_finalize(stmt);
 
     return rc == SQLITE_DONE;
+}
+
+bool CSQLiteManager::MarkDone(UINT id)
+{
+    return MoveTodo(id, true);
 }

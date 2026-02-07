@@ -49,23 +49,35 @@ void CAddTodoDlg::SetTodoItem(const TodoItem& item)
 
 LRESULT CAddTodoDlg::OnInitDialog(UINT, WPARAM, LPARAM, BOOL&)
 {
+#ifdef _DEBUG
     ::OutputDebugString(_T("CAddTodoDlg::OnInitDialog called\n"));
+#endif
 
     // 获取控件
     m_comboPriority = GetDlgItem(IDC_PRIORITY_COMBO);
+#ifdef _DEBUG
     ::OutputDebugString(m_comboPriority.IsWindow() ? _T("Combo OK\n") : _T("Combo FAILED\n"));
+#endif
 
     m_editTitle = GetDlgItem(IDC_TITLE_EDIT);
+#ifdef _DEBUG
     ::OutputDebugString(m_editTitle.IsWindow() ? _T("Title OK\n") : _T("Title FAILED\n"));
+#endif
 
     m_editNote = GetDlgItem(IDC_NOTE_EDIT);
+#ifdef _DEBUG
     ::OutputDebugString(m_editNote.IsWindow() ? _T("Note OK\n") : _T("Note FAILED\n"));
+#endif
 
     m_dateTime = GetDlgItem(IDC_END_TIME_DATETIME);
+#ifdef _DEBUG
     ::OutputDebugString(m_dateTime.IsWindow() ? _T("DateTime OK\n") : _T("DateTime FAILED\n"));
+#endif
 
     m_comboProject = GetDlgItem(IDC_PROJECT_COMBO);
+#ifdef _DEBUG
     ::OutputDebugString(m_comboProject.IsWindow() ? _T("Project Combo OK\n") : _T("Project Combo FAILED\n"));
+#endif
 
     // 初始化优先级下拉框
     m_comboPriority.AddString(_T("P0 紧急"));
@@ -133,10 +145,12 @@ LRESULT CAddTodoDlg::OnOK(WORD, WORD, HWND, BOOL&)
         m_item.project.clear();
     }
 
+#ifdef _DEBUG
     TCHAR szDebug[512];
     _stprintf_s(szDebug, _T("OnOK: project='%s', title='%s'\n"),
         m_item.project.c_str(), m_item.title.c_str());
     ::OutputDebugString(szDebug);
+#endif
 
     // 获取标题
     CString strTitle;

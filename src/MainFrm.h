@@ -12,6 +12,11 @@ class CMainFrame :
 public:
     DECLARE_FRAME_WND_CLASS(NULL, IDR_MAINFRAME)
 
+    // Timer 常量定义
+    static constexpr UINT_PTR IDT_STATUS_CLEAR = 1001;
+    static constexpr UINT_PTR IDT_FORCE_REFRESH = 2000;
+    static constexpr UINT_PTR IDT_SEARCH_DEBOUNCE = 2001;
+
     BEGIN_MSG_MAP(CMainFrame)
         MESSAGE_HANDLER(WM_CREATE, OnCreate)
         MESSAGE_HANDLER(WM_DESTROY, OnDestroy)
@@ -61,6 +66,9 @@ public:
     virtual BOOL PreTranslateMessage(MSG* pMsg);
     virtual BOOL OnIdle();
 
+public:
+    HWND m_hToolbar = nullptr;  // 保存 ToolBar 句柄
+
 private:
     // 工具栏按钮文字定义
     static LPCTSTR TOPMOST_TEXT_NORMAL;
@@ -80,6 +88,11 @@ private:
     CEdit m_detailEndTime;
     CEdit m_detailNote;
     CEdit m_detailEmpty;
+
+    // 详情面板按钮
+    CButton m_btnClose;     // 关闭按钮（右下角）
+    CButton m_btnKeep;      // 固定/取消按钮（右下角）
+    bool m_bDetailPinned = false;  // 详情面板固定模式
 
     CToolBarCtrl m_toolbar;
     CReBarCtrl m_rebar;
@@ -110,7 +123,6 @@ private:
     TimeFilter m_timeFilter = TimeFilter::All;
 
     // 搜索相关
-    static const UINT_PTR SEARCH_TIMER_ID = 2001;
     CString m_searchKeyword;
     void OnSearchChanged();
 
@@ -120,6 +132,7 @@ private:
     void SetupLists();
     void UpdateLists();
     void RefreshDisplay();
+    void AdjustTodoListColumnWidths(int cx);
 
     void CreateDetailPanelControls();
     void UpdateDetailPanel(int index, bool isDoneList);
@@ -136,7 +149,15 @@ private:
     void LoadWindowSettings();
     void SaveWindowSettings();
 
+    std::wstring EscapeCSV(const std::wstring& s);
+
 private:
+    // 手动子类化：保存原始窗口过程（用于详情面板按钮消息转发）
+    WNDPROC m_originalReBarWndProc = nullptr;
+    WNDPROC m_originalSearchContainerWndProc = nullptr;
+    WNDPROC m_originalComboWndProc = nullptr;
+    WNDPROC m_originalDetailPanelWndProc = nullptr;
+
     // 窗口设置相关
     static const TCHAR* REG_KEY_PATH;
     int m_nSplitterPos;

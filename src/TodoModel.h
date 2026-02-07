@@ -96,6 +96,7 @@ public:
     }
 
     bool DeleteTodo(UINT id, bool isDoneList) {
+#ifdef _DEBUG
     TCHAR szDebug[256];
     _stprintf_s(szDebug, _T("TodoDataManager::DeleteTodo: id=%d, isDoneList=%d\n"), id, isDoneList);
     ::OutputDebugString(szDebug);
@@ -103,22 +104,31 @@ public:
     auto& items = isDoneList ? doneItems : todoItems;
     _stprintf_s(szDebug, _T("TodoDataManager::DeleteTodo: items.size()=%zu\n"), items.size());
     ::OutputDebugString(szDebug);
+#else
+    auto& items = isDoneList ? doneItems : todoItems;
+#endif
     
     auto it = std::find_if(items.begin(), items.end(),
         [id](const TodoItem& item) { return item.id == id; });
     if (it != items.end()) {
+#ifdef _DEBUG
         _stprintf_s(szDebug, _T("TodoDataManager::DeleteTodo: Found item at index=%zu, title='%s'\n"), 
             std::distance(items.begin(), it), it->title.c_str());
         ::OutputDebugString(szDebug);
+#endif
         
         items.erase(it);
+#ifdef _DEBUG
         _stprintf_s(szDebug, _T("TodoDataManager::DeleteTodo: After erase, items.size()=%zu\n"), items.size());
         ::OutputDebugString(szDebug);
+#endif
         
         return true;
     }
+#ifdef _DEBUG
     _stprintf_s(szDebug, _T("TodoDataManager::DeleteTodo: Item not found\n"));
     ::OutputDebugString(szDebug);
+#endif
     return false;
 }
 
@@ -235,11 +245,13 @@ public:
     // 搜索过滤（支持关键词、项目筛选和时间筛选）
     // timeFilter: 0=全部, 1=今天, 2=本周
     std::vector<int> Search(const std::wstring& keyword, const std::wstring& project, bool isDoneList, int timeFilter = 0) const {
-        TCHAR szDebug[512];
         const auto& items = isDoneList ? doneItems : todoItems;
+#ifdef _DEBUG
+        TCHAR szDebug[512];
         _stprintf_s(szDebug, _T("[搜索] START: keyword='%s', project='%s', timeFilter=%d, total=%zu\n"),
             keyword.c_str(), project.c_str(), timeFilter, items.size());
         ::OutputDebugString(szDebug);
+#endif
 
         std::vector<int> indices;
 
@@ -248,8 +260,10 @@ public:
             for (int i = 0; i < static_cast<int>(items.size()); ++i) {
                 indices.push_back(i);
             }
+#ifdef _DEBUG
             _stprintf_s(szDebug, _T("[搜索] END (无筛选): 返回 %zu 条\n"), indices.size());
             ::OutputDebugString(szDebug);
+#endif
             return indices;
         }
 
@@ -312,17 +326,23 @@ public:
             }
 
             // 输出每条记录的检查结果
+#ifdef _DEBUG
             if (failed) {
                 _stprintf_s(szDebug, _T("[搜索] SKIP [%d]: %s - %s\n"), i, item.title.c_str(), (LPCTSTR)failReason);
             } else {
                 _stprintf_s(szDebug, _T("[搜索] PASS [%d]: %s\n"), i, item.title.c_str());
-                indices.push_back(i);
             }
             ::OutputDebugString(szDebug);
+#endif
+            if (!failed) {
+                indices.push_back(i);
+            }
         }
 
+#ifdef _DEBUG
         _stprintf_s(szDebug, _T("[搜索] END: 通过 %zu / %zu 条\n"), indices.size(), items.size());
         ::OutputDebugString(szDebug);
+#endif
         return indices;
     }
 };

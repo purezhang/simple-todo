@@ -29,6 +29,9 @@ public:
     // 移动 Todo（从 Todo 到 Done 或反之）
     bool MoveTodo(UINT id, bool isDone);
 
+    // 标记 Todo 为已完成
+    bool MarkDone(UINT id);
+
 private:
     sqlite3* m_db;
     std::wstring m_dbPath;

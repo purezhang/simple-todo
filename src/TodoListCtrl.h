@@ -123,10 +123,16 @@ public:
                         SetItemText(idx, 3, (LPTSTR)(LPCTSTR)strEndTime);
                     }
                     else {
-                        // Done 列表：保持原样 [0]优先级 [1]标题 [2]完成时间
+                        // Done 列表：[0]优先级 [1]标题 [2]完成时间
                         lvi.iSubItem = 0;
                         lvi.pszText = (LPTSTR)(LPCTSTR)strPriority;
                         int idx = InsertItem(&lvi);
+
+                        // 优先级列居中
+                        LVCOLUMN lvcol = {0};
+                        lvcol.mask = LVCF_FMT;
+                        lvcol.fmt = LVCFMT_CENTER;
+                        SetColumn(0, &lvcol);
 
                         SetItemText(idx, 1, (LPTSTR)(LPCTSTR)strTitle);
                         SetItemText(idx, 2, (LPTSTR)(LPCTSTR)strTime);
@@ -254,35 +260,73 @@ public:
                 return CDRF_NOTIFYITEMDRAW;
 
             case CDDS_ITEMPREPAINT: {
-                // 如果被选中，使用系统默认绘制，忽略自定义颜色
+                // 如果被选中，使用系统默认绘制
                 if (pLVCD->nmcd.uItemState & CDIS_SELECTED) {
                     return CDRF_DODEFAULT;
                 }
 
                 const TodoItem* pItem = m_pDataManager->GetItemAt(
                     static_cast<int>(pLVCD->nmcd.dwItemSpec), m_isDoneList);
-                
-                if (pItem) {
-                    if (m_isDoneList) {
-                        // 已完成：灰色
-                        pLVCD->clrText = RGB(128, 128, 128);
-                    } else {
-                        // 待办：根据优先级着色
-                        // P0: 红色, P1: 深橙/赭色 (避免纯黄看不清)
-                        switch (pItem->priority) {
-                            case Priority::P0: pLVCD->clrText = RGB(200, 0, 0); break;
-                            case Priority::P1: pLVCD->clrText = RGB(180, 100, 0); break;
-                            case Priority::P2: pLVCD->clrText = RGB(0, 0, 0); break; // 默认黑
-                            case Priority::P3: pLVCD->clrText = RGB(100, 100, 100); break; // 低优灰
-                            default: pLVCD->clrText = RGB(0, 0, 0); break;
-                        }
-                    }
+
+                if (pItem && m_isDoneList) {
+                    // 已完成列表：全部灰色
+                    pLVCD->clrText = RGB(128, 128, 128);
+                    return CDRF_DODEFAULT;
                 }
-                return CDRF_DODEFAULT; // 让系统继续绘制文本，但使用我们设置的颜色
+
+                // 未选中且不是已完成列表，继续处理子项
+                return CDRF_NOTIFYSUBITEMDRAW;
             }
 
-            case CDDS_SUBITEM | CDDS_ITEMPREPAINT:
+            case CDDS_SUBITEM | CDDS_ITEMPREPAINT: {
+                const TodoItem* pItem = m_pDataManager->GetItemAt(
+                    static_cast<int>(pLVCD->nmcd.dwItemSpec), m_isDoneList);
+
+                if (!pItem) {
+                    return CDRF_DODEFAULT;
+                }
+
+                int subItem = pLVCD->iSubItem;
+
+                // 确定列的类型：0=优先级, 1=优先级/标题, 2=标题/完成时间, 3=截止时间
+                bool isPriorityColumn = false;
+
+                if (!m_isDoneList) {
+                    // Todo: [0]创建日期 [1]优先级 [2]标题 [3]截止时间
+                    isPriorityColumn = (subItem == 1);
+                } else {
+                    // Done: [0]优先级 [1]标题 [2]完成时间
+                    isPriorityColumn = (subItem == 0);
+                }
+
+                if (isPriorityColumn) {
+                    // 优先级列：P0 红色，P1 深橙，P2 黑，P3 灰
+                    switch (pItem->priority) {
+                        case Priority::P0: pLVCD->clrText = RGB(255, 0, 0); break;
+                        case Priority::P1: pLVCD->clrText = RGB(180, 100, 0); break;
+                        case Priority::P2: pLVCD->clrText = RGB(0, 0, 0); break;
+                        case Priority::P3: pLVCD->clrText = RGB(100, 100, 100); break;
+                        default: pLVCD->clrText = RGB(0, 0, 0); break;
+                    }
+                } else if (!m_isDoneList && subItem == 3) {
+                    // 截止时间列：过期红色
+                    if (pItem->targetEndTime.GetTime() > 0) {
+                        CTime currentTime = CTime::GetCurrentTime();
+                        if (pItem->targetEndTime < currentTime) {
+                            pLVCD->clrText = RGB(255, 0, 0);  // 截止时间过期，红色
+                        } else {
+                            pLVCD->clrText = RGB(0, 0, 0);  // 正常黑色
+                        }
+                    } else {
+                        pLVCD->clrText = RGB(0, 0, 0);  // 无截止时间，黑色
+                    }
+                } else {
+                    // 其他列：黑色
+                    pLVCD->clrText = RGB(0, 0, 0);
+                }
+
                 return CDRF_DODEFAULT;
+            }
         }
 
         return CDRF_DODEFAULT;
