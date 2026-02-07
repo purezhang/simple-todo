@@ -1,21 +1,21 @@
 #pragma once
 #include "stdafx.h"
 
-// 定义 ListView 分组消息常量（确保跨 Windows 版本兼容）
-#ifndef LVM_INSERTGROUPW
-#define LVM_INSERTGROUPW (LVM_FIRST + 145)
-#endif
-#ifndef LVM_GETGROUPCOUNT
-#define LVM_GETGROUPCOUNT (LVM_FIRST + 152)
-#endif
-#ifndef LVM_REMOVEGROUP
-#define LVM_REMOVEGROUP (LVM_FIRST + 146)
-#endif
-#ifndef LVM_GETGROUPINFO
-#define LVM_GETGROUPINFO (LVM_FIRST + 153)
-#endif
+// 列索引枚举 (C1: 定义列枚举避免魔法数字)
+enum TodoColumns { 
+    TODO_COL_DATE = 0,      // 创建日期
+    TODO_COL_PRIORITY = 1,  // 优先级
+    TODO_COL_TITLE = 2,     // 标题
+    TODO_COL_DUE = 3        // 截止时间
+};
 
-// 自定义列表控件，支持虚拟模式、分组视图和优先级颜色
+enum DoneColumns { 
+    DONE_COL_PRIORITY = 0,  // 优先级
+    DONE_COL_TITLE = 1,     // 标题
+    DONE_COL_TIME = 2       // 完成时间
+};
+
+// 自定义列表控件 - 完整虚拟列表模式 (LVS_OWNERDATA + LVN_GETDISPINFO)
 class CTodoListCtrl :
     public CWindowImpl<CTodoListCtrl, CListViewCtrl>
 {
@@ -23,7 +23,7 @@ public:
     DECLARE_WND_SUPERCLASS(NULL, CListViewCtrl::GetWndClassName())
 
     BEGIN_MSG_MAP(CTodoListCtrl)
-        // 转发通知到父窗口处理
+        MESSAGE_HANDLER(WM_CREATE, OnCreate)
         REFLECTED_NOTIFY_CODE_HANDLER(NM_CLICK, OnClick)
         REFLECTED_NOTIFY_CODE_HANDLER(NM_DBLCLK, OnDblClick)
         REFLECTED_NOTIFY_CODE_HANDLER(LVN_KEYDOWN, OnKeyDown)
@@ -33,228 +33,205 @@ public:
         DEFAULT_REFLECTION_HANDLER()
     END_MSG_MAP()
 
-    // 构造函数
-    CTodoListCtrl() : m_pDataManager(nullptr), m_isDoneList(false) {}
+    CTodoListCtrl() : m_pDataManager(nullptr), m_isDoneList(false), m_timeFilter(0) {}
 
-    // 设置数据管理器
-    void SetDataManager(TodoDataManager* pManager) {
-        m_pDataManager = pManager;
-    }
-
-    // 设置是否为 Done 列表
-    void SetIsDoneList(bool isDone) {
-        m_isDoneList = isDone;
-    }
-
-    // 设置搜索关键词
-    void SetSearchKeyword(const std::wstring& keyword) {
-        m_searchKeyword = keyword;
-    }
-
-    // 设置项目筛选关键词
-    void SetProjectFilter(const std::wstring& project) {
-        m_projectFilter = project;
-    }
-
-    // 设置时间筛选（0=全部, 1=今天, 2=本周）
-    void SetTimeFilter(int timeFilter) {
-        m_timeFilter = timeFilter;
-    }
-
-    // 获取是否为 Done 列表
-    bool IsDoneList() const {
-        return m_isDoneList;
-    }
-
-    // 获取数据管理器
-    TodoDataManager* GetDataManager() const {
-        return m_pDataManager;
-    }
-
-    // 刷新列表
-    // 刷新列表 - 直接插入真实项目，不使用虚拟列表
-    void RefreshList() {
-        if (m_pDataManager) {
-            TODO_DEBUG_LOGF(_T("RefreshList: isDoneList=%d, itemCount=%d\n"),
-                m_isDoneList, m_pDataManager->GetItemCount(m_isDoneList));
-
-            // 排序数据
-            m_pDataManager->Sort(m_isDoneList);
-
-            // 获取搜索过滤后的索引
-            std::vector<int> filteredIndices = m_pDataManager->Search(m_searchKeyword, m_projectFilter, m_isDoneList, m_timeFilter);
-
-            // 保存显示索引到原始数据索引的映射（用于 OnCustomDraw）
-            m_displayToDataIndex = filteredIndices;
-
-            // 清空现有项目
-            DeleteAllItems();
-
-            // 确保禁用分组
-            ListView_EnableGroupView(m_hWnd, FALSE);
-            ListView_RemoveAllGroups(m_hWnd);
-
-            // 直接插入过滤后的项目
-            for (int i = 0; i < static_cast<int>(filteredIndices.size()); i++) {
-                int originalIndex = filteredIndices[i];
-                const TodoItem* pItem = m_pDataManager->GetItemAt(originalIndex, m_isDoneList);
-                if (pItem) {
-                    // 准备数据
-                    CString strDate = pItem->createTime.Format(_T("%Y/%m/%d"));
-                    CString strPriority = pItem->GetPriorityString();
-                    if (pItem->isPinned && !m_isDoneList) {
-                        strPriority = _T("📌 ") + strPriority;
-                    }
-                    CString strTitle(pItem->title.c_str());
-                    CString strTime = m_isDoneList ? pItem->GetDoneTimeString() : pItem->GetCreateTimeString();
-
-                    // 插入项目
-                    LVITEM lvi = {0};
-                    lvi.mask = LVIF_TEXT;
-                    lvi.iItem = i;
-
-                    if (!m_isDoneList) {
-                        // Todo 列表：[0]创建日期 [1]优先级 [2]标题 [3]截止时间
-                        lvi.iSubItem = 0;
-                        lvi.pszText = (LPTSTR)(LPCTSTR)strDate;
-                        int idx = InsertItem(&lvi);
-
-                        SetItemText(idx, 1, (LPTSTR)(LPCTSTR)strPriority);
-                        SetItemText(idx, 2, (LPTSTR)(LPCTSTR)strTitle);
-
-                        CString strEndTime = pItem->GetEndTimeString();
-                        SetItemText(idx, 3, (LPTSTR)(LPCTSTR)strEndTime);
-                    }
-                    else {
-                        // Done 列表：[0]优先级 [1]标题 [2]完成时间
-                        lvi.iSubItem = 0;
-                        lvi.pszText = (LPTSTR)(LPCTSTR)strPriority;
-                        int idx = InsertItem(&lvi);
-
-                        // 优先级列居中
-                        LVCOLUMN lvcol = {0};
-                        lvcol.mask = LVCF_FMT;
-                        lvcol.fmt = LVCFMT_CENTER;
-                        SetColumn(0, &lvcol);
-
-                        SetItemText(idx, 1, (LPTSTR)(LPCTSTR)strTitle);
-                        SetItemText(idx, 2, (LPTSTR)(LPCTSTR)strTime);
-                    }
-
-                    TODO_DEBUG_LOGF(_T("  Inserted item %d (orig=%d): %s\n"), i, originalIndex, pItem->title.c_str());
-                }
-            }
-
-            TODO_DEBUG_LOGF(_T("RefreshList complete: inserted %d items (filtered from %d)\n"),
-                filteredIndices.size(), m_pDataManager->GetItemCount(m_isDoneList));
-        }
-    }
-    
-    // RefreshGroups 已移除 (不再使用分组)
-
-    // 获取指定索引的分组ID
-    int GetGroupIdByIndex(int index) {
-        LVGROUP group = {0};
-        group.cbSize = sizeof(LVGROUP);
-        group.mask = LVGF_GROUPID;
-        // 使用 LVM_GETGROUPINFO 消息
-        BOOL bResult = (BOOL)::SendMessage(m_hWnd, LVM_GETGROUPINFO, index, (LPARAM)&group);
-        TCHAR szDebug[256];
-        _stprintf_s(szDebug, _T("GetGroupIdByIndex: index=%d, result=%d, groupId=%d\n"),
-            index, bResult, group.iGroupId);
+    LRESULT OnCreate(UINT, WPARAM, LPARAM, BOOL& bHandled) {
+        bHandled = FALSE;
+        
+        #ifdef _DEBUG
+        TCHAR szDebug[512];
+        _stprintf_s(szDebug, _T("[OnCreate] TodoListCtrl created\n"));
         ::OutputDebugString(szDebug);
-        if (bResult) {
-            return group.iGroupId;
+        
+        HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+        if (hConsole != INVALID_HANDLE_VALUE) {
+            DWORD written;
+            WriteConsole(hConsole, szDebug, (DWORD)_tcslen(szDebug), &written, NULL);
         }
-        return -1;
+        #endif
+        
+        return 0;
     }
 
-    // 展开所有分组
-    void ExpandAllGroups() {
-        int groupCount = ListView_GetGroupCount(m_hWnd);
-        for (int i = 0; i < groupCount; i++) {
-            LVGROUP group = {0};
-            group.cbSize = sizeof(LVGROUP);
-            group.mask = LVGF_STATE;
-            group.state = LVGS_NORMAL;
-            group.stateMask = LVGS_COLLAPSED;
-            SetGroupInfo(i, &group);
+    void SetDataManager(TodoDataManager* pManager) { m_pDataManager = pManager; }
+    void SetIsDoneList(bool isDone) { m_isDoneList = isDone; }
+    void SetSearchKeyword(const std::wstring& keyword) { m_searchKeyword = keyword; }
+    void SetProjectFilter(const std::wstring& project) { m_projectFilter = project; }
+    void SetTimeFilter(int timeFilter) { m_timeFilter = timeFilter; }
+    bool IsDoneList() const { return m_isDoneList; }
+    TodoDataManager* GetDataManager() const { return m_pDataManager; }
+
+    // ========================================================================
+    // 虚拟列表核心：RefreshList 只用 SetItemCountEx
+    // ========================================================================
+    void RefreshList() {
+        if (!m_pDataManager) return;
+
+        // 搜索过滤，获取映射（排序由 DataManager 内部管理）
+        m_displayToDataIndex = m_pDataManager->Search(
+            m_searchKeyword, m_projectFilter, m_isDoneList, m_timeFilter);
+
+        #ifdef _DEBUG
+        TCHAR szDebug[512];
+        _stprintf_s(szDebug, _T("[RefreshList] %s list: total=%zu items\n"), 
+            m_isDoneList ? _T("Done") : _T("Todo"), m_displayToDataIndex.size());
+        ::OutputDebugString(szDebug);
+        
+        // 输出前5个索引映射
+        for (size_t i = 0; i < m_displayToDataIndex.size() && i < 5; ++i) {
+            _stprintf_s(szDebug, _T("[RefreshList] index[%zu] -> data[%d]\n"), 
+                i, m_displayToDataIndex[i]);
+            ::OutputDebugString(szDebug);
         }
-        Invalidate(FALSE);
+        #endif
+
+        // 设置虚拟列表项数量（问题7: 使用 0 确保滚动条正确更新）
+        int itemCount = static_cast<int>(m_displayToDataIndex.size());
+        SetItemCountEx(itemCount, 0);
+
+        #ifdef _DEBUG
+        _stprintf_s(szDebug, _T("[RefreshList] SetItemCountEx(%d)\n"), itemCount);
+        ::OutputDebugString(szDebug);
+        #endif
+
+        // 刷新显示
+        if (GetItemCount() > 0) {
+            #ifdef _DEBUG
+            _stprintf_s(szDebug, _T("[RefreshList] RedrawItems(0, %d)\n"), GetItemCount() - 1);
+            ::OutputDebugString(szDebug);
+            #endif
+            RedrawItems(0, GetItemCount() - 1);
+        }
+        
+        // 强制刷新整个控件
+        Invalidate();
+        UpdateWindow();
+        
+        #ifdef _DEBUG
+        _stprintf_s(szDebug, _T("[RefreshList] Invalidate and UpdateWindow called\n"));
+        ::OutputDebugString(szDebug);
+        #endif
     }
 
-    // 折叠所有分组
-    void CollapseAllGroups() {
-        int groupCount = ListView_GetGroupCount(m_hWnd);
-        for (int i = 0; i < groupCount; i++) {
-            LVGROUP group = {0};
-            group.cbSize = sizeof(LVGROUP);
-            group.mask = LVGF_STATE;
-            group.state = LVGS_COLLAPSED;
-            group.stateMask = LVGS_COLLAPSED;
-            SetGroupInfo(i, &group);
-        }
-        Invalidate(FALSE);
+    // 通过显示索引获取数据项 (带边界保护)
+    const TodoItem* GetItemByDisplayIndex(int displayIndex) const {
+        if (!m_pDataManager) return nullptr;
+        if (displayIndex < 0 || displayIndex >= static_cast<int>(m_displayToDataIndex.size()))
+            return nullptr;
+        int dataIndex = m_displayToDataIndex[displayIndex];
+        if (dataIndex < 0 || dataIndex >= m_pDataManager->GetItemCount(m_isDoneList))
+            return nullptr;
+        return m_pDataManager->GetItemAt(dataIndex, m_isDoneList);
     }
 
-    // 点击事件
-    LRESULT OnClick(int, LPNMHDR pnmh, BOOL&) {
-        NMITEMACTIVATE* pItemAct = reinterpret_cast<NMITEMACTIVATE*>(pnmh);
+    // 通过显示索引获取 item id (用于父窗口通信)
+    UINT GetItemIdByDisplayIndex(int displayIndex) const {
+        const TodoItem* pItem = GetItemByDisplayIndex(displayIndex);
+        return pItem ? pItem->id : 0;
+    }
 
-        if (pItemAct->iItem >= 0) {
-            // 通知父窗口更新详情面板
-            // 使用自定义消息或扩展当前消息处理
-            ::PostMessage(GetParent(), WM_NOTIFY, 0, reinterpret_cast<LPARAM>(pnmh));
-            
+    // ========================================================================
+    // OnGetDispInfo - 虚拟列表数据提供
+    // ========================================================================
+    LRESULT OnGetDispInfo(int, LPNMHDR pnmh, BOOL& bHandled) {
+        NMLVDISPINFO* pDispInfo = reinterpret_cast<NMLVDISPINFO*>(pnmh);
+        bHandled = TRUE;
+
+        int displayIndex = pDispInfo->item.iItem;
+        
+        #ifdef _DEBUG
+        TCHAR szDebug[512];
+        _stprintf_s(szDebug, _T("[OnGetDispInfo] displayIndex=%d, subItem=%d, mask=0x%X\n"), 
+            displayIndex, pDispInfo->item.iSubItem, pDispInfo->item.mask);
+        ::OutputDebugString(szDebug);
+        #endif
+
+        const TodoItem* pItem = GetItemByDisplayIndex(displayIndex);
+        if (!pItem) {
+            #ifdef _DEBUG
+            ::OutputDebugString(_T("[OnGetDispInfo] pItem is NULL\n"));
+            #endif
+            return 0;
+        }
+
+        #ifdef _DEBUG
+        _stprintf_s(szDebug, _T("[OnGetDispInfo] Item found: id=%u, title='%s'\n"), 
+            pItem->id, pItem->title.c_str());
+        ::OutputDebugString(szDebug);
+        #endif
+
+        if (pDispInfo->item.mask & LVIF_TEXT) {
+            CString strValue;
+
             if (!m_isDoneList) {
-                // Todo 列表：点击复选框完成任务
-                LVHITTESTINFO hti = {0};
-                hti.pt = pItemAct->ptAction;
-                SubItemHitTest(&hti);
-
-                if (hti.iItem == pItemAct->iItem && hti.iSubItem == 1) {
-                    // 点击的是描述列，可以切换完成状态
-                    NotifyParentCompleteTask(pItemAct->iItem);
+                switch (pDispInfo->item.iSubItem) {
+                    case TODO_COL_DATE:
+                        strValue = pItem->createTime.Format(_T("%Y/%m/%d"));
+                        break;
+                    case TODO_COL_PRIORITY:
+                        strValue = pItem->GetPriorityString();
+                        if (pItem->isPinned) strValue = _T("📌 ") + strValue;
+                        break;
+                    case TODO_COL_TITLE:
+                        strValue = pItem->title.c_str();
+                        break;
+                    case TODO_COL_DUE:
+                        // 问题8: 明确处理未设置截止时间的情况
+                        if (pItem->targetEndTime.GetTime() > 0)
+                            strValue = pItem->GetEndTimeString();
+                        else
+                            strValue = _T("-");
+                        break;
+                    default:
+                        strValue = _T("");
+                        break;
+                }
+            } else {
+                switch (pDispInfo->item.iSubItem) {
+                    case DONE_COL_PRIORITY:
+                        strValue = pItem->GetPriorityString();
+                        break;
+                    case DONE_COL_TITLE:
+                        strValue = pItem->title.c_str();
+                        break;
+                    case DONE_COL_TIME:
+                        strValue = pItem->GetDoneTimeString();
+                        break;
+                    default:
+                        strValue = _T("");
+                        break;
                 }
             }
-        }
 
-        return 0;
-    }
+            #ifdef _DEBUG
+            _stprintf_s(szDebug, _T("[OnGetDispInfo] Setting text: '%s' (cchTextMax=%d)\n"), 
+                (LPCTSTR)strValue, pDispInfo->item.cchTextMax);
+            ::OutputDebugString(szDebug);
+            #endif
 
-    // 双击事件 - 编辑任务
-    LRESULT OnDblClick(int, LPNMHDR pnmh, BOOL&) {
-        NMITEMACTIVATE* pItemAct = reinterpret_cast<NMITEMACTIVATE*>(pnmh);
-
-        if (pItemAct->iItem >= 0) {
-            NotifyParentEditTask(pItemAct->iItem);
-        }
-
-        return 0;
-    }
-
-    // 键盘事件
-    LRESULT OnKeyDown(int, LPNMHDR pnmh, BOOL&) {
-        NMLVKEYDOWN* pKeyDown = reinterpret_cast<NMLVKEYDOWN*>(pnmh);
-
-        if (pKeyDown->wVKey == VK_DELETE && !m_isDoneList) {
-            // Delete 键删除任务
-            int sel = GetSelectedIndex();
-            if (sel >= 0) {
-                NotifyParentDeleteTask(sel);
-            }
-        } else if (pKeyDown->wVKey == VK_SPACE && !m_isDoneList) {
-            // 空格键完成任务
-            int sel = GetSelectedIndex();
-            if (sel >= 0) {
-                NotifyParentCompleteTask(sel);
+            if (pDispInfo->item.pszText && pDispInfo->item.cchTextMax > 0) {
+                wcsncpy_s(pDispInfo->item.pszText, pDispInfo->item.cchTextMax,
+                    (LPCTSTR)strValue, _TRUNCATE);
+                
+                #ifdef _DEBUG
+                _stprintf_s(szDebug, _T("[OnGetDispInfo] Text copied successfully\n"));
+                ::OutputDebugString(szDebug);
+                #endif
+            } else {
+                #ifdef _DEBUG
+                _stprintf_s(szDebug, _T("[OnGetDispInfo] pszText=0x%X, cchTextMax=%d\n"), 
+                    (UINT_PTR)pDispInfo->item.pszText, pDispInfo->item.cchTextMax);
+                ::OutputDebugString(szDebug);
+                #endif
             }
         }
 
         return 0;
     }
 
-    // 自定义绘制 - 实现优先级颜色和样式
+    // ========================================================================
+    // CustomDraw - 修复文本显示问题
+    // ========================================================================
     LRESULT OnCustomDraw(int, LPNMHDR pnmh, BOOL& bHandled) {
         NMLVCUSTOMDRAW* pLVCD = reinterpret_cast<NMLVCUSTOMDRAW*>(pnmh);
         bHandled = TRUE;
@@ -264,166 +241,106 @@ public:
                 return CDRF_NOTIFYITEMDRAW;
 
             case CDDS_ITEMPREPAINT: {
-                // 使用显示索引映射获取正确的原始数据索引
-                int displayIndex = static_cast<int>(pLVCD->nmcd.dwItemSpec);
-                int dataIndex = (displayIndex >= 0 && displayIndex < static_cast<int>(m_displayToDataIndex.size()))
-                    ? m_displayToDataIndex[displayIndex] : displayIndex;
-                const TodoItem* pItem = m_pDataManager->GetItemAt(dataIndex, m_isDoneList);
+                // 强制设置默认黑色文本和白色背景
+                pLVCD->clrText = RGB(0, 0, 0);
+                pLVCD->clrTextBk = RGB(255, 255, 255);
 
-                if (pItem && m_isDoneList) {
-                    // 已完成列表：全部灰色
+                if (m_isDoneList) {
+                    // Done 列表: 灰色文本，白色背景
                     pLVCD->clrText = RGB(128, 128, 128);
-                    return CDRF_NEWFONT;
+                    pLVCD->clrTextBk = RGB(255, 255, 255);
+                    return CDRF_DODEFAULT;
                 }
 
-                // 请求子项绘制通知
-                return CDRF_NOTIFYSUBITEMDRAW;
+                // Todo 列表: 请求子项通知，并要求应用字体（防止主题覆盖）
+                return CDRF_NOTIFYSUBITEMDRAW | CDRF_NEWFONT;
             }
 
             case CDDS_SUBITEM | CDDS_ITEMPREPAINT: {
-                // 使用显示索引映射获取正确的原始数据索引
                 int displayIndex = static_cast<int>(pLVCD->nmcd.dwItemSpec);
-                int dataIndex = (displayIndex >= 0 && displayIndex < static_cast<int>(m_displayToDataIndex.size()))
-                    ? m_displayToDataIndex[displayIndex] : displayIndex;
-                const TodoItem* pItem = m_pDataManager->GetItemAt(dataIndex, m_isDoneList);
-
+                const TodoItem* pItem = GetItemByDisplayIndex(displayIndex);
+                
+                // 强制设置默认黑色文本和白色背景
+                pLVCD->clrText = RGB(0, 0, 0);
+                pLVCD->clrTextBk = RGB(255, 255, 255);
+                
                 if (!pItem) {
                     return CDRF_DODEFAULT;
                 }
 
                 int subItem = pLVCD->iSubItem;
 
-                // 默认黑色
-                pLVCD->clrText = RGB(0, 0, 0);
-
-                // Todo 列表布局: [0]创建日期 [1]优先级 [2]标题 [3]截止时间
-                if (!m_isDoneList) {
-                    if (subItem == 1) {
-                        // 优先级列
-                        switch (pItem->priority) {
-                            case Priority::P0: pLVCD->clrText = RGB(220, 38, 38); break;  // 鲜红
-                            case Priority::P1: pLVCD->clrText = RGB(217, 119, 6); break;  // 橙色
-                            case Priority::P2: pLVCD->clrText = RGB(0, 0, 0); break;
-                            case Priority::P3: pLVCD->clrText = RGB(107, 114, 128); break;
-                            default: break;
-                        }
-                    } else if (subItem == 3) {
-                        // 截止时间列：过期红色
-                        if (pItem->targetEndTime.GetTime() > 0) {
-                            CTime now = CTime::GetCurrentTime();
-                            if (pItem->targetEndTime < now) {
-                                pLVCD->clrText = RGB(220, 38, 38);  // 过期，红色
-                            }
+                // 优先级列染色
+                if (subItem == TODO_COL_PRIORITY) {
+                    switch (pItem->priority) {
+                        case Priority::P0: pLVCD->clrText = RGB(220, 38, 38); break;  // 红
+                        case Priority::P1: pLVCD->clrText = RGB(217, 119, 6); break;  // 橙
+                        case Priority::P2: pLVCD->clrText = RGB(0, 0, 0); break;      // 黑
+                        case Priority::P3: pLVCD->clrText = RGB(107, 114, 128); break;// 灰
+                        default: break;
+                    }
+                }
+                // 截止时间列：过期红色
+                else if (subItem == TODO_COL_DUE) {
+                    if (pItem->targetEndTime.GetTime() > 0) {
+                        CTime now = CTime::GetCurrentTime();
+                        if (pItem->targetEndTime < now) {
+                            pLVCD->clrText = RGB(220, 38, 38);
                         }
                     }
                 }
+                // 确保标题列使用黑色文本
+                else if (subItem == TODO_COL_TITLE || subItem == DONE_COL_TITLE) {
+                    pLVCD->clrText = RGB(0, 0, 0);
+                }
+                // 确保其他列使用黑色文本
+                else {
+                    pLVCD->clrText = RGB(0, 0, 0);
+                }
 
-                return CDRF_NEWFONT;
+                return CDRF_DODEFAULT;
             }
         }
 
         return CDRF_DODEFAULT;
     }
 
-    // 右键菜单
-    LRESULT OnRClick(int, LPNMHDR pnmh, BOOL&) {
-        NMITEMACTIVATE* pItemAct = reinterpret_cast<NMITEMACTIVATE*>(pnmh);
+    // 点击事件 - 由 MainFrm::OnNotify 统一处理，这里不再发消息
+    LRESULT OnClick(int, LPNMHDR pnmh, BOOL&) {
+        // 问题1修复: 删除 WM_USER+100，避免与 OnNotify 重复处理
+        return 0;
+    }
 
+    // 双击事件 - 编辑任务
+    LRESULT OnDblClick(int, LPNMHDR pnmh, BOOL&) {
+        NMITEMACTIVATE* pItemAct = reinterpret_cast<NMITEMACTIVATE*>(pnmh);
         if (pItemAct->iItem >= 0) {
-            NotifyParentShowContextMenu(pItemAct->iItem, pItemAct->ptAction);
+            NotifyParentEditTask(pItemAct->iItem);
+        }
+        return 0;
+    }
+
+    // 键盘事件
+    LRESULT OnKeyDown(int, LPNMHDR pnmh, BOOL&) {
+        NMLVKEYDOWN* pKeyDown = reinterpret_cast<NMLVKEYDOWN*>(pnmh);
+
+        if (pKeyDown->wVKey == VK_DELETE && !m_isDoneList) {
+            int sel = GetNextItem(-1, LVNI_SELECTED);
+            if (sel >= 0) NotifyParentDeleteTask(sel);
+        } else if (pKeyDown->wVKey == VK_SPACE && !m_isDoneList) {
+            int sel = GetNextItem(-1, LVNI_SELECTED);
+            if (sel >= 0) NotifyParentCompleteTask(sel);
         }
 
         return 0;
     }
 
-    // 虚拟列表获取显示信息 - 直接处理
-    LRESULT OnGetDispInfo(int, LPNMHDR pnmh, BOOL&) {
-        NMLVDISPINFO* pDispInfo = reinterpret_cast<NMLVDISPINFO*>(pnmh);
-
-        TCHAR szDebug[256];
-        _stprintf_s(szDebug, _T("CTodoListCtrl::OnGetDispInfo: item=%d, isDone=%d, mask=0x%08X\n"),
-            pDispInfo->item.iItem, m_isDoneList, pDispInfo->item.mask);
-        ::OutputDebugString(szDebug);
-
-        if (m_pDataManager) {
-            int itemCount = m_pDataManager->GetItemCount(m_isDoneList);
-            _stprintf_s(szDebug, _T("  Item count in OnGetDispInfo: %d\n"), itemCount);
-            ::OutputDebugString(szDebug);
-
-            if (pDispInfo->item.iItem >= 0 && pDispInfo->item.iItem < itemCount) {
-                const TodoItem* pItem = m_pDataManager->GetItemAt(pDispInfo->item.iItem, m_isDoneList);
-                if (pItem) {
-                    _stprintf_s(szDebug, _T("  Got item: id=%d, title='%s'\n"), pItem->id, pItem->title.c_str());
-                    ::OutputDebugString(szDebug);
-
-                    // 【关键修复】设置分组ID（即使 mask 不包含 LVIF_GROUPID 也要设置）
-                    pDispInfo->item.iGroupId = pItem->GetGroupId();
-                    _stprintf_s(szDebug, _T("  Set iGroupId=%d\n"), pDispInfo->item.iGroupId);
-                    ::OutputDebugString(szDebug);
-
-                    // 确保返回分组信息
-                    pDispInfo->item.mask |= LVIF_GROUPID;
-
-                    // 设置文本
-                    if (pDispInfo->item.mask & LVIF_TEXT) {
-                        _stprintf_s(szDebug, _T("  Setting text for subitem=%d\n"), pDispInfo->item.iSubItem);
-                        ::OutputDebugString(szDebug);
-                        
-                        CString strValue;
-                        switch (pDispInfo->item.iSubItem) {
-                            case 0:
-                                // [0] 这里的逻辑稍微有点复杂，因为 Done 和 Todo 第一列不一样
-                                if (m_isDoneList) strValue = pItem->GetPriorityString();
-                                else strValue = pItem->createTime.Format(_T("%Y/%m/%d")); // 创建日期
-                                break;
-                            case 1:
-                                // [1]
-                                if (m_isDoneList) strValue = pItem->title.c_str();
-                                else strValue = pItem->GetPriorityString(); // 优先级
-                                break;
-                            case 2:
-                                // [2]
-                                if (m_isDoneList) strValue = pItem->GetDoneTimeString();
-                                else strValue = pItem->title.c_str(); // 标题
-                                break;
-                            case 3:
-                                // [3] Todo 列表的截止时间
-                                if (!m_isDoneList) {
-                                    strValue = pItem->GetEndTimeString();
-                                }
-                                break;
-                            default:
-                                strValue = _T("");
-                                break;
-                        }
-                        
-                        _stprintf_s(szDebug, _T("  Setting value: '%s'\n"), (LPCTSTR)strValue);
-                        ::OutputDebugString(szDebug);
-                        
-                        // 确保文本不会溢出
-                        if (pDispInfo->item.pszText != nullptr && pDispInfo->item.cchTextMax > 0) {
-                            wcsncpy_s(pDispInfo->item.pszText, pDispInfo->item.cchTextMax,
-                                (LPCTSTR)strValue, _TRUNCATE);
-                            _stprintf_s(szDebug, _T("  Text copied successfully\n"));
-                            ::OutputDebugString(szDebug);
-                        } else {
-                            _stprintf_s(szDebug, _T("  Warning: pszText is null or cchTextMax is 0\n"));
-                            ::OutputDebugString(szDebug);
-                        }
-                    }
-                } else {
-                    _stprintf_s(szDebug, _T("  WARNING: GetItemAt returned null for index=%d\n"), pDispInfo->item.iItem);
-                    ::OutputDebugString(szDebug);
-                }
-            } else {
-                _stprintf_s(szDebug, _T("  WARNING: Invalid item index=%d (count=%d)\n"), pDispInfo->item.iItem, itemCount);
-                ::OutputDebugString(szDebug);
-            }
-        } else {
-            _stprintf_s(szDebug, _T("  WARNING: m_pDataManager is null\n"));
-            ::OutputDebugString(szDebug);
+    // 右键菜单
+    LRESULT OnRClick(int, LPNMHDR pnmh, BOOL&) {
+        NMITEMACTIVATE* pItemAct = reinterpret_cast<NMITEMACTIVATE*>(pnmh);
+        if (pItemAct->iItem >= 0) {
+            NotifyParentShowContextMenu(pItemAct->iItem, pItemAct->ptAction);
         }
-
         return 0;
     }
 
@@ -432,35 +349,42 @@ private:
     bool m_isDoneList;
     std::wstring m_searchKeyword;
     std::wstring m_projectFilter;
-    int m_timeFilter;  // 时间筛选（0=全部, 1=今天, 2=本周）
-    std::vector<int> m_displayToDataIndex;  // 显示索引到原始数据索引的映射
+    int m_timeFilter;
+    std::vector<int> m_displayToDataIndex;
 
-    // 获取选中的项目索引
-    int GetSelectedIndex() {
-        return GetNextItem(-1, LVNI_SELECTED);
+    // ========================================================================
+    // 问题4: 通知父窗口时传递 item->id 而非 displayIndex
+    // ========================================================================
+    void NotifyParentCompleteTask(int displayIndex) {
+        UINT itemId = GetItemIdByDisplayIndex(displayIndex);
+        if (itemId > 0) {
+            ::PostMessage(GetParent(), WM_COMMAND, ID_TODO_COMPLETE,
+                MAKELPARAM(itemId, m_isDoneList ? 1 : 0));
+        }
     }
 
-    // 通知父窗口完成任务
-    void NotifyParentCompleteTask(int index) {
-        ::PostMessage(GetParent(), WM_COMMAND, ID_TODO_COMPLETE,
-            MAKELPARAM(index, m_isDoneList ? 1 : 0));
+    void NotifyParentDeleteTask(int displayIndex) {
+        UINT itemId = GetItemIdByDisplayIndex(displayIndex);
+        if (itemId > 0) {
+            ::PostMessage(GetParent(), WM_COMMAND, ID_TODO_DELETE,
+                MAKELPARAM(itemId, m_isDoneList ? 1 : 0));
+        }
     }
 
-    // 通知父窗口删除任务
-    void NotifyParentDeleteTask(int index) {
-        ::PostMessage(GetParent(), WM_COMMAND, ID_TODO_DELETE,
-            MAKELPARAM(index, m_isDoneList ? 1 : 0));
+    void NotifyParentEditTask(int displayIndex) {
+        UINT itemId = GetItemIdByDisplayIndex(displayIndex);
+        if (itemId > 0) {
+            ::PostMessage(GetParent(), WM_COMMAND, ID_TODO_EDIT,
+                MAKELPARAM(itemId, m_isDoneList ? 1 : 0));
+        }
     }
 
-    // 通知父窗口编辑任务
-    void NotifyParentEditTask(int index) {
-        ::PostMessage(GetParent(), WM_COMMAND, ID_TODO_EDIT,
-            MAKELPARAM(index, m_isDoneList ? 1 : 0));
-    }
-
-    // 通知父窗口显示右键菜单
-    void NotifyParentShowContextMenu(int index, POINT pt) {
-        ::PostMessage(GetParent(), WM_COMMAND, ID_TODO_CONTEXT_MENU,
-            MAKELPARAM(index, m_isDoneList ? 1 : 0));
+    void NotifyParentShowContextMenu(int displayIndex, POINT pt) {
+        UINT itemId = GetItemIdByDisplayIndex(displayIndex);
+        if (itemId > 0) {
+            // 保存选中的 id 到父窗口可访问的位置
+            ::PostMessage(GetParent(), WM_COMMAND, ID_TODO_CONTEXT_MENU,
+                MAKELPARAM(itemId, m_isDoneList ? 1 : 0));
+        }
     }
 };

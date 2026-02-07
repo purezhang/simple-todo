@@ -36,11 +36,16 @@ static LRESULT CALLBACK DetailPanelWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, 
 // 搜索容器窗口过程（用于转发 EN_CHANGE 等消息到主窗口）
 static LRESULT CALLBACK SearchContainerWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    WNDPROC originalWndProc = (WNDPROC)::GetWindowLongPtr(hWnd, GWLP_USERDATA);
+    // GWLP_USERDATA + sizeof(LONG_PTR) 存储原始窗口过程
+    WNDPROC originalWndProc = (WNDPROC)::GetWindowLongPtr(hWnd, GWLP_USERDATA + sizeof(LONG_PTR));
 
     if (uMsg == WM_COMMAND) {
-        // 转发编辑框消息给主窗口（跨越 ReBar 和容器）
-        HWND hMainWnd = ::GetParent(::GetParent(hWnd));  // 容器 -> ReBar -> MainFrame
+        // 从 GWLP_USERDATA 获取主窗口句柄（由 OnCreate 设置）
+        HWND hMainWnd = (HWND)::GetWindowLongPtr(hWnd, GWLP_USERDATA);
+        // 健壮性：如果未设置或无效，使用 GetAncestor 获取顶层窗口
+        if (!hMainWnd || !::IsWindow(hMainWnd)) {
+            hMainWnd = ::GetAncestor(hWnd, GA_ROOTOWNER);
+        }
         if (hMainWnd) {
             ::SendMessage(hMainWnd, uMsg, wParam, lParam);
         }
@@ -196,13 +201,17 @@ LRESULT CMainFrame::OnCreate(UINT, WPARAM, LPARAM, BOOL&)
     DEBUG_OUTPUT(szToolbar);
 
     // 将工具栏加入 ReBar (利用 cyMinChild > cyChild 实现垂直居中)
+    // 使用 TB_GETBUTTONSIZE 获取 Toolbar 真实高度
+    DWORD dwBtnSize = (DWORD)m_toolbar.SendMessage(TB_GETBUTTONSIZE);
+    int realBtnH = HIWORD(dwBtnSize);
+
     REBARBANDINFO rbbiToolbar = { sizeof(REBARBANDINFO) };
     rbbiToolbar.fMask = RBBIM_STYLE | RBBIM_CHILD | RBBIM_CHILDSIZE | RBBIM_SIZE;
     rbbiToolbar.fStyle = RBBS_FIXEDBMP | RBBS_NOGRIPPER | RBBS_CHILDEDGE; // CHILDEDGE 启用边缘居中
     rbbiToolbar.hwndChild = m_toolbar;
-    rbbiToolbar.cyChild = CTRL_HEIGHT;        // 控件高度
-    rbbiToolbar.cyMinChild = ROW_HEIGHT;      // 带区高度（大于控件高度则自动居中）
-    rbbiToolbar.cyMaxChild = CTRL_HEIGHT;     // 限制最大高度，防止 ReBar 扩展 Toolbar
+    rbbiToolbar.cyChild = realBtnH;         // 使用真实控件高度
+    rbbiToolbar.cyMinChild = realBtnH;      // 使用真实高度作为带区高度
+    rbbiToolbar.cyMaxChild = realBtnH;     // 限制最大高度，防止 ReBar 扩展 Toolbar
     rbbiToolbar.cxMinChild = MulDiv(200, dpi, 96);  // 修复：设置最小宽度，防止折叠
     rbbiToolbar.cx = MulDiv(300, dpi, 96);    // 工具栏预设宽度
     m_rebar.InsertBand(-1, &rbbiToolbar);
@@ -285,18 +294,27 @@ LRESULT CMainFrame::OnCreate(UINT, WPARAM, LPARAM, BOOL&)
 
     // 子类化搜索容器以转发 WM_COMMAND 消息到主窗口
     if (m_searchContainer.IsWindow()) {
+        // 先保存主窗口句柄到 GWLP_USERDATA
+        ::SetWindowLongPtr(m_searchContainer.m_hWnd, GWLP_USERDATA, (LONG_PTR)m_hWnd);
+        // 再子类化，将原始窗口过程保存到 GWLP_USERDATA + sizeof(LONG_PTR)
         m_originalSearchContainerWndProc = (WNDPROC)::SetWindowLongPtr(
             m_searchContainer.m_hWnd, GWLP_WNDPROC, (LONG_PTR)SearchContainerWndProc);
-        ::SetWindowLongPtr(m_searchContainer.m_hWnd, GWLP_USERDATA, (LONG_PTR)m_originalSearchContainerWndProc);
+        ::SetWindowLongPtr(m_searchContainer.m_hWnd, GWLP_USERDATA + sizeof(LONG_PTR),
+                          (LONG_PTR)m_originalSearchContainerWndProc);
     }
 
     // 搜索容器加入 ReBar
+    // 使用 GetWindowRect 获取容器真实高度
+    RECT rcSearch;
+    m_searchContainer.GetWindowRect(&rcSearch);
+    int realSearchH = rcSearch.bottom - rcSearch.top;
+
     REBARBANDINFO rbbiSearch = { sizeof(REBARBANDINFO) };
     rbbiSearch.fMask = RBBIM_STYLE | RBBIM_CHILD | RBBIM_CHILDSIZE | RBBIM_SIZE;
     rbbiSearch.fStyle = RBBS_FIXEDBMP | RBBS_NOGRIPPER;
     rbbiSearch.hwndChild = m_searchContainer;
-    rbbiSearch.cyChild = CTRL_HEIGHT;
-    rbbiSearch.cyMinChild = ROW_HEIGHT;       // 保持与工具栏一致的行高，确保水平对齐
+    rbbiSearch.cyChild = realSearchH;
+    rbbiSearch.cyMinChild = realSearchH;       // 使用真实高度
     rbbiSearch.cxMinChild = iconWidth + editWidth + 20;
     rbbiSearch.cx = iconWidth + editWidth + 20;
     m_rebar.InsertBand(-1, &rbbiSearch);
@@ -318,12 +336,17 @@ LRESULT CMainFrame::OnCreate(UINT, WPARAM, LPARAM, BOOL&)
         (UINT_PTR)hComboParent, (UINT_PTR)m_hWnd, (UINT_PTR)m_rebar.m_hWnd);
     DEBUG_OUTPUT(szDbg);
 
+    // 使用 GetWindowRect 获取 ComboBox 真实高度
+    RECT rcCombo;
+    m_projectFilter.GetWindowRect(&rcCombo);
+    int realComboH = rcCombo.bottom - rcCombo.top;
+
     REBARBANDINFO rbbiProject = { sizeof(REBARBANDINFO) };
     rbbiProject.fMask = RBBIM_STYLE | RBBIM_CHILD | RBBIM_CHILDSIZE | RBBIM_SIZE;
     rbbiProject.fStyle = RBBS_FIXEDBMP | RBBS_NOGRIPPER;
     rbbiProject.hwndChild = m_projectFilter;
-    rbbiProject.cyChild = MulDiv(22, dpi, 96); // ComboBox 通常有固定高度
-    rbbiProject.cyMinChild = ROW_HEIGHT;
+    rbbiProject.cyChild = realComboH;
+    rbbiProject.cyMinChild = realComboH;
     rbbiProject.cxMinChild = MulDiv(100, dpi, 96);
     rbbiProject.cx = MulDiv(100, dpi, 96);
     m_rebar.InsertBand(-1, &rbbiProject);
@@ -342,7 +365,7 @@ LRESULT CMainFrame::OnCreate(UINT, WPARAM, LPARAM, BOOL&)
 
     m_todoList.Create(m_mainSplitter, rcDefault, NULL,
         WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS |
-        LVS_REPORT | LVS_SHOWSELALWAYS,
+        LVS_REPORT | LVS_SHOWSELALWAYS | LVS_OWNERDATA,  // 必须添加虚拟列表样式
         WS_EX_CLIENTEDGE);
     m_todoList.SetFont(m_fontList);
     m_todoList.SetImageList(m_imgList, LVSIL_SMALL);
@@ -351,7 +374,7 @@ LRESULT CMainFrame::OnCreate(UINT, WPARAM, LPARAM, BOOL&)
 
     m_doneList.Create(m_mainSplitter, rcDefault, NULL,
         WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS |
-        LVS_REPORT | LVS_SHOWSELALWAYS,
+        LVS_REPORT | LVS_SHOWSELALWAYS | LVS_OWNERDATA,  // 必须添加虚拟列表样式
         WS_EX_CLIENTEDGE);
     m_doneList.SetFont(m_fontList);
     m_doneList.SetImageList(m_imgList, LVSIL_SMALL);
@@ -944,7 +967,8 @@ void CMainFrame::AdjustTodoListColumnWidths(int cx)
 
 void CMainFrame::CreateDetailPanelControls()
 {
-    HFONT hNormalFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+    // 使用与列表一致的字体（m_fontList）
+    HFONT hNormalFont = m_fontList;
 
     m_detailEmpty.Create(m_detailPanel, rcDefault, _T("点击任务查看详情"),
         WS_CHILD | ES_CENTER | ES_READONLY | ES_MULTILINE | ES_AUTOVSCROLL,
@@ -1058,7 +1082,17 @@ void CMainFrame::UpdateDetailPanel(int index, bool isDoneList)
     int x = 10;
     int y = 10;
     int width = rcPanel.right - rcPanel.left - 20;
-    int lineHeight = 18;
+
+    // 获取字体高度以匹配列表控件
+    TEXTMETRIC tm;
+    HDC hdc = ::GetDC(m_detailPanel.m_hWnd);
+    HFONT hOldFont = (HFONT)::SelectObject(hdc, m_fontList);
+    ::GetTextMetrics(hdc, &tm);
+    ::SelectObject(hdc, hOldFont);
+    ::ReleaseDC(m_detailPanel.m_hWnd, hdc);
+    int lineHeight = tm.tmHeight + tm.tmExternalLeading;
+    if (lineHeight < 22) lineHeight = 22;  // 最小行高 22px
+
     int gapSmall = 4;
     int gapLarge = 8;
 

@@ -151,6 +151,26 @@ public:
         return nullptr;
     }
 
+    // 通过 id 查找 item（遍历两个列表）
+    const TodoItem* GetItemById(UINT id) const {
+        for (const auto& item : todoItems) {
+            if (item.id == id) return &item;
+        }
+        for (const auto& item : doneItems) {
+            if (item.id == id) return &item;
+        }
+        return nullptr;
+    }
+
+    // 通过 id 查找 item（指定列表）
+    const TodoItem* GetItemById(UINT id, bool isDoneList) const {
+        const auto& items = isDoneList ? doneItems : todoItems;
+        for (const auto& item : items) {
+            if (item.id == id) return &item;
+        }
+        return nullptr;
+    }
+
     int GetItemCount(bool isDoneList) const {
         return static_cast<int>(isDoneList ? doneItems.size() : todoItems.size());
     }
@@ -281,8 +301,12 @@ public:
                     // 已完成列表：使用实际完成时间进行筛选
                     itemDate = item.actualDoneTime;
                 } else {
-                    // 待办列表 或 actualDoneTime 无效：使用创建时间
-                    itemDate = item.createTime;
+                    // 待办列表：使用截止时间（如果已设置），否则回退到创建时间
+                    if (item.targetEndTime.GetTime() > 0) {
+                        itemDate = item.targetEndTime;
+                    } else {
+                        itemDate = item.createTime;
+                    }
                 }
 
                 CTime now = CTime::GetCurrentTime();

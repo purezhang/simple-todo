@@ -26,6 +26,11 @@ public:
         MESSAGE_HANDLER(WM_NOTIFY, OnNotify)
         MESSAGE_HANDLER(WM_COMMAND, OnCommand)
         MESSAGE_HANDLER(WM_APP + 100, OnAppRefresh)
+
+        // 关键：添加消息反射，将通知发回给子控件处理数据和自绘
+        // 虚拟列表的 LVN_GETDISPINFO、NM_CUSTOMDRAW 等需要反射回 TodoListCtrl 处理
+        REFLECT_NOTIFICATIONS()
+
         CHAIN_MSG_MAP(CFrameWindowImpl<CMainFrame>)
     END_MSG_MAP()
 
