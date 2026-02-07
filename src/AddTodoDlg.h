@@ -12,7 +12,7 @@ public:
         MESSAGE_HANDLER(WM_INITDIALOG, OnInitDialog)
         COMMAND_ID_HANDLER(IDOK, OnOK)
         COMMAND_ID_HANDLER(IDCANCEL, OnCancel)
-        NOTIFY_CODE_HANDLER(EN_CHANGE, OnTitleChange)
+        COMMAND_CODE_HANDLER(EN_CHANGE, OnTitleChange)
         COMMAND_ID_HANDLER(IDC_TODAY_BTN, OnTodayBtn)
         COMMAND_ID_HANDLER(IDC_TOMORROW_BTN, OnTomorrowBtn)
         COMMAND_ID_HANDLER(IDC_THIS_WEEK_BTN, OnThisWeekBtn)
@@ -32,7 +32,7 @@ public:
     LRESULT OnInitDialog(UINT, WPARAM, LPARAM, BOOL&);
     LRESULT OnOK(WORD, WORD, HWND, BOOL&);
     LRESULT OnCancel(WORD, WORD, HWND, BOOL&);
-    LRESULT OnTitleChange(int idCtrl, LPNMHDR pnmh, BOOL&);
+    LRESULT OnTitleChange(WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled);
     LRESULT OnTodayBtn(WORD, WORD, HWND, BOOL&);
     LRESULT OnTomorrowBtn(WORD, WORD, HWND, BOOL&);
     LRESULT OnThisWeekBtn(WORD, WORD, HWND, BOOL&);

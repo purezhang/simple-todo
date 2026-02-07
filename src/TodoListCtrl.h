@@ -84,6 +84,9 @@ public:
             // 获取搜索过滤后的索引
             std::vector<int> filteredIndices = m_pDataManager->Search(m_searchKeyword, m_projectFilter, m_isDoneList, m_timeFilter);
 
+            // 保存显示索引到原始数据索引的映射（用于 OnCustomDraw）
+            m_displayToDataIndex = filteredIndices;
+
             // 清空现有项目
             DeleteAllItems();
 
@@ -252,35 +255,37 @@ public:
     }
 
     // 自定义绘制 - 实现优先级颜色和样式
-    LRESULT OnCustomDraw(int, LPNMHDR pnmh, BOOL&) {
+    LRESULT OnCustomDraw(int, LPNMHDR pnmh, BOOL& bHandled) {
         NMLVCUSTOMDRAW* pLVCD = reinterpret_cast<NMLVCUSTOMDRAW*>(pnmh);
+        bHandled = TRUE;
 
         switch (pLVCD->nmcd.dwDrawStage) {
             case CDDS_PREPAINT:
                 return CDRF_NOTIFYITEMDRAW;
 
             case CDDS_ITEMPREPAINT: {
-                // 如果被选中，使用系统默认绘制
-                if (pLVCD->nmcd.uItemState & CDIS_SELECTED) {
-                    return CDRF_DODEFAULT;
-                }
-
-                const TodoItem* pItem = m_pDataManager->GetItemAt(
-                    static_cast<int>(pLVCD->nmcd.dwItemSpec), m_isDoneList);
+                // 使用显示索引映射获取正确的原始数据索引
+                int displayIndex = static_cast<int>(pLVCD->nmcd.dwItemSpec);
+                int dataIndex = (displayIndex >= 0 && displayIndex < static_cast<int>(m_displayToDataIndex.size()))
+                    ? m_displayToDataIndex[displayIndex] : displayIndex;
+                const TodoItem* pItem = m_pDataManager->GetItemAt(dataIndex, m_isDoneList);
 
                 if (pItem && m_isDoneList) {
                     // 已完成列表：全部灰色
                     pLVCD->clrText = RGB(128, 128, 128);
-                    return CDRF_DODEFAULT;
+                    return CDRF_NEWFONT;
                 }
 
-                // 未选中且不是已完成列表，继续处理子项
+                // 请求子项绘制通知
                 return CDRF_NOTIFYSUBITEMDRAW;
             }
 
             case CDDS_SUBITEM | CDDS_ITEMPREPAINT: {
-                const TodoItem* pItem = m_pDataManager->GetItemAt(
-                    static_cast<int>(pLVCD->nmcd.dwItemSpec), m_isDoneList);
+                // 使用显示索引映射获取正确的原始数据索引
+                int displayIndex = static_cast<int>(pLVCD->nmcd.dwItemSpec);
+                int dataIndex = (displayIndex >= 0 && displayIndex < static_cast<int>(m_displayToDataIndex.size()))
+                    ? m_displayToDataIndex[displayIndex] : displayIndex;
+                const TodoItem* pItem = m_pDataManager->GetItemAt(dataIndex, m_isDoneList);
 
                 if (!pItem) {
                     return CDRF_DODEFAULT;
@@ -288,44 +293,32 @@ public:
 
                 int subItem = pLVCD->iSubItem;
 
-                // 确定列的类型：0=优先级, 1=优先级/标题, 2=标题/完成时间, 3=截止时间
-                bool isPriorityColumn = false;
+                // 默认黑色
+                pLVCD->clrText = RGB(0, 0, 0);
 
+                // Todo 列表布局: [0]创建日期 [1]优先级 [2]标题 [3]截止时间
                 if (!m_isDoneList) {
-                    // Todo: [0]创建日期 [1]优先级 [2]标题 [3]截止时间
-                    isPriorityColumn = (subItem == 1);
-                } else {
-                    // Done: [0]优先级 [1]标题 [2]完成时间
-                    isPriorityColumn = (subItem == 0);
-                }
-
-                if (isPriorityColumn) {
-                    // 优先级列：P0 红色，P1 深橙，P2 黑，P3 灰
-                    switch (pItem->priority) {
-                        case Priority::P0: pLVCD->clrText = RGB(255, 0, 0); break;
-                        case Priority::P1: pLVCD->clrText = RGB(180, 100, 0); break;
-                        case Priority::P2: pLVCD->clrText = RGB(0, 0, 0); break;
-                        case Priority::P3: pLVCD->clrText = RGB(100, 100, 100); break;
-                        default: pLVCD->clrText = RGB(0, 0, 0); break;
-                    }
-                } else if (!m_isDoneList && subItem == 3) {
-                    // 截止时间列：过期红色
-                    if (pItem->targetEndTime.GetTime() > 0) {
-                        CTime currentTime = CTime::GetCurrentTime();
-                        if (pItem->targetEndTime < currentTime) {
-                            pLVCD->clrText = RGB(255, 0, 0);  // 截止时间过期，红色
-                        } else {
-                            pLVCD->clrText = RGB(0, 0, 0);  // 正常黑色
+                    if (subItem == 1) {
+                        // 优先级列
+                        switch (pItem->priority) {
+                            case Priority::P0: pLVCD->clrText = RGB(220, 38, 38); break;  // 鲜红
+                            case Priority::P1: pLVCD->clrText = RGB(217, 119, 6); break;  // 橙色
+                            case Priority::P2: pLVCD->clrText = RGB(0, 0, 0); break;
+                            case Priority::P3: pLVCD->clrText = RGB(107, 114, 128); break;
+                            default: break;
                         }
-                    } else {
-                        pLVCD->clrText = RGB(0, 0, 0);  // 无截止时间，黑色
+                    } else if (subItem == 3) {
+                        // 截止时间列：过期红色
+                        if (pItem->targetEndTime.GetTime() > 0) {
+                            CTime now = CTime::GetCurrentTime();
+                            if (pItem->targetEndTime < now) {
+                                pLVCD->clrText = RGB(220, 38, 38);  // 过期，红色
+                            }
+                        }
                     }
-                } else {
-                    // 其他列：黑色
-                    pLVCD->clrText = RGB(0, 0, 0);
                 }
 
-                return CDRF_DODEFAULT;
+                return CDRF_NEWFONT;
             }
         }
 
@@ -440,6 +433,7 @@ private:
     std::wstring m_searchKeyword;
     std::wstring m_projectFilter;
     int m_timeFilter;  // 时间筛选（0=全部, 1=今天, 2=本周）
+    std::vector<int> m_displayToDataIndex;  // 显示索引到原始数据索引的映射
 
     // 获取选中的项目索引
     int GetSelectedIndex() {

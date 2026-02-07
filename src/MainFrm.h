@@ -86,6 +86,7 @@ private:
     CEdit m_detailDescription;
     CEdit m_detailCreateTime;
     CEdit m_detailEndTime;
+    CEdit m_detailProject;
     CEdit m_detailNote;
     CEdit m_detailEmpty;
 
@@ -160,5 +161,5 @@ private:
 
     // 窗口设置相关
     static const TCHAR* REG_KEY_PATH;
-    int m_nSplitterPos;
+    int m_nSplitterPos = 0;
 };

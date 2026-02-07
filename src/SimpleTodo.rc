@@ -11,9 +11,11 @@
 // Version
 //
 
+#include "version.h"
+
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,0,0,1
- PRODUCTVERSION 1,0,0,1
+ FILEVERSION APP_VERSION_CSV
+ PRODUCTVERSION APP_VERSION_CSV
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -30,12 +32,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Yamu Tech"
             VALUE "FileDescription", "Simple Todo Application"
-            VALUE "FileVersion", "1.0.0.1"
+            VALUE "FileVersion", APP_VERSION_STR
             VALUE "InternalName", "SimpleTodo"
             VALUE "LegalCopyright", "Copyright (C) 2026"
             VALUE "OriginalFilename", "SimpleTodo.exe"
             VALUE "ProductName", "Simple Todo"
-            VALUE "ProductVersion", "1.0.0.1"
+            VALUE "ProductVersion", APP_VERSION_STR
         END
     END
     BLOCK "VarFileInfo"
@@ -66,7 +68,7 @@ FONT 9, "Microsoft YaHei UI", 400, 0, 0x1
 BEGIN
     // 标题
     LTEXT           "标题 *",IDC_STATIC,12,10,100,12,SS_LEFT
-    EDITTEXT        IDC_TITLE_EDIT,12,24,356,20,ES_AUTOHSCROLL | ES_LEFT | WS_BORDER | WS_TABSTOP
+    EDITTEXT        IDC_TITLE_EDIT,12,24,356,14,ES_AUTOHSCROLL | ES_LEFT | WS_BORDER | WS_TABSTOP
 
     // 备注
     LTEXT           "备注",IDC_STATIC,12,50,100,12,SS_LEFT

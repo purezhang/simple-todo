@@ -186,8 +186,14 @@ LRESULT CAddTodoDlg::OnCancel(WORD, WORD, HWND, BOOL&)
     return 0;
 }
 
-LRESULT CAddTodoDlg::OnTitleChange(int idCtrl, LPNMHDR pnmh, BOOL&)
+LRESULT CAddTodoDlg::OnTitleChange(WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL& bHandled)
 {
+    // 只处理标题编辑框的变化
+    if (wID != IDC_TITLE_EDIT) {
+        bHandled = FALSE;
+        return 0;
+    }
+
     // 获取当前输入的文本
     CString strText;
     m_editTitle.GetWindowText(strText);
@@ -225,9 +231,10 @@ LRESULT CAddTodoDlg::OnTomorrowBtn(WORD, WORD, HWND, BOOL&)
 LRESULT CAddTodoDlg::OnThisWeekBtn(WORD, WORD, HWND, BOOL&)
 {
     CTime now = CTime::GetCurrentTime();
-    int nDayOfWeek = now.GetDayOfWeek(); // 1=周日, 2=周一, ...
-    int nDaysToAdd = (8 - nDayOfWeek) % 7; // 周五之前，或者如果是周末则下周五
-    if (nDaysToAdd == 0) nDaysToAdd = 7; // 如果是周日，加7天到下周日
+    int nDayOfWeek = now.GetDayOfWeek(); // 1=周日, 2=周一, ..., 6=周五, 7=周六
+    // 计算到本周五的天数 (周五 = GetDayOfWeek() 返回 6)
+    int nDaysToAdd = (6 - nDayOfWeek + 7) % 7;
+    if (nDaysToAdd == 0) nDaysToAdd = 7; // 如果今天是周五，设为下周五
 
     CTime thisWeek = now + CTimeSpan(nDaysToAdd, 0, 0, 0);
     m_item.targetEndTime = CTime(thisWeek.GetYear(), thisWeek.GetMonth(), thisWeek.GetDay(), 23, 59, 59);
@@ -265,7 +272,7 @@ void CAddTodoDlg::ParseNaturalLanguage(const std::wstring& text)
 
     // 解析时间 (HH:MM 格式)
     pos = text.find(L':');
-    if (pos != std::wstring::npos && pos > 0) {
+    if (pos != std::wstring::npos && pos >= 2) {
         // 尝试提取时间
         int hour = 0, minute = 0;
         if (swscanf_s(text.c_str() + pos - 2, L"%d:%d", &hour, &minute) == 2) {

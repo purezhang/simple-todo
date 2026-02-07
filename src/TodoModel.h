@@ -313,13 +313,31 @@ public:
                 failReason.Format(_T("项目: '%s' != '%s'"), item.project.c_str(), project.c_str());
             }
 
-            // 关键词筛选
+            // 关键词筛选（支持标题和优先级）
             if (!failed && !keyword.empty()) {
                 std::wstring lowerKeyword = keyword;
                 std::transform(lowerKeyword.begin(), lowerKeyword.end(), lowerKeyword.begin(), ::tolower);
                 std::wstring lowerTitle = item.title;
                 std::transform(lowerTitle.begin(), lowerTitle.end(), lowerTitle.begin(), ::tolower);
-                if (lowerTitle.find(lowerKeyword) == std::wstring::npos) {
+
+                bool keywordMatch = false;
+
+                // 匹配标题
+                if (lowerTitle.find(lowerKeyword) != std::wstring::npos) {
+                    keywordMatch = true;
+                }
+
+                // 匹配优先级 (P0/P1/P2/P3)
+                if (!keywordMatch) {
+                    CString priorityStr = item.GetPriorityString();
+                    std::wstring lowerPriority(priorityStr.GetString());
+                    std::transform(lowerPriority.begin(), lowerPriority.end(), lowerPriority.begin(), ::tolower);
+                    if (lowerPriority.find(lowerKeyword) != std::wstring::npos) {
+                        keywordMatch = true;
+                    }
+                }
+
+                if (!keywordMatch) {
                     failed = true;
                     failReason = _T("关键词不匹配");
                 }

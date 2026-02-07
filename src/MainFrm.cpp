@@ -15,12 +15,39 @@
 // 详情面板窗口过程（用于转发按钮消息）
 static LRESULT CALLBACK DetailPanelWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+    // 获取保存的原始窗口过程
+    WNDPROC originalWndProc = (WNDPROC)::GetWindowLongPtr(hWnd, GWLP_USERDATA);
+
     if (uMsg == WM_COMMAND) {
         // 转发按钮消息给父窗口（CMainFrame）
         HWND hParent = ::GetParent(hWnd);
         if (hParent) {
             ::SendMessage(hParent, uMsg, wParam, lParam);
         }
+    }
+
+    // 调用原始窗口过程
+    if (originalWndProc) {
+        return ::CallWindowProc(originalWndProc, hWnd, uMsg, wParam, lParam);
+    }
+    return ::DefWindowProc(hWnd, uMsg, wParam, lParam);
+}
+
+// 搜索容器窗口过程（用于转发 EN_CHANGE 等消息到主窗口）
+static LRESULT CALLBACK SearchContainerWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    WNDPROC originalWndProc = (WNDPROC)::GetWindowLongPtr(hWnd, GWLP_USERDATA);
+
+    if (uMsg == WM_COMMAND) {
+        // 转发编辑框消息给主窗口（跨越 ReBar 和容器）
+        HWND hMainWnd = ::GetParent(::GetParent(hWnd));  // 容器 -> ReBar -> MainFrame
+        if (hMainWnd) {
+            ::SendMessage(hMainWnd, uMsg, wParam, lParam);
+        }
+    }
+
+    if (originalWndProc) {
+        return ::CallWindowProc(originalWndProc, hWnd, uMsg, wParam, lParam);
     }
     return ::DefWindowProc(hWnd, uMsg, wParam, lParam);
 }
@@ -50,7 +77,11 @@ void DebugLog(const TCHAR* format, ...) {
 }
 
 CMainFrame::CMainFrame()
-    : m_nSelectedIndex(-1), m_bSelectedIsDone(false), m_bChineseLanguage(true)
+    : m_nSelectedIndex(-1), m_bSelectedIsDone(false), m_bChineseLanguage(true),
+      m_bTopmost(false), m_bFirstSize(true), m_bDetailVisible(false), m_bDetailPinned(false),
+      m_nSplitterPos(0), m_timeFilter(TimeFilter::All),
+      m_originalReBarWndProc(nullptr), m_originalSearchContainerWndProc(nullptr),
+      m_originalComboWndProc(nullptr), m_originalDetailPanelWndProc(nullptr)
 {
 }
 
@@ -137,7 +168,7 @@ LRESULT CMainFrame::OnCreate(UINT, WPARAM, LPARAM, BOOL&)
     // 设置工具栏按钮的统一尺寸 (必须在 AddButtons 之前调用!)
     // 高度使用 ROW_HEIGHT 使按钮填满带区，实现垂直居中效果
     int btnWidth = MulDiv(60, dpi, 96);
-    m_toolbar.SetButtonSize(CSize(btnWidth, ROW_HEIGHT));
+    m_toolbar.SetButtonSize(CSize(btnWidth, CTRL_HEIGHT));  // 使用 CTRL_HEIGHT 让按钮在带区中垂直居中
 
     // 添加扩展样式，支持双缓冲防止闪烁
     m_toolbar.SetExtendedStyle(TBSTYLE_EX_MIXEDBUTTONS | TBSTYLE_EX_DOUBLEBUFFER);
@@ -237,7 +268,8 @@ LRESULT CMainFrame::OnCreate(UINT, WPARAM, LPARAM, BOOL&)
     // --- 5. 创建并配置搜索框 ---
     m_searchContainer.Create(m_rebar, rcDefault, NULL, WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN);
     m_searchLabel.Create(m_searchContainer, rcDefault, L"🔍", WS_CHILD | WS_VISIBLE);
-    m_searchEdit.Create(m_searchContainer, rcDefault, NULL, WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL);
+    m_searchEdit.Create(m_searchContainer, rcDefault, NULL, 
+        WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL, 0, ID_SEARCH_EDIT);
     m_searchEdit.SetFont(m_fontList);
     m_searchLabel.SetFont(m_fontList);
 
@@ -250,6 +282,13 @@ LRESULT CMainFrame::OnCreate(UINT, WPARAM, LPARAM, BOOL&)
     m_searchEdit.MoveWindow(iconWidth + 5, editY, editWidth, MulDiv(20, dpi, 96));
 
     DEBUG_OUTPUT(_T("[OnCreate] 搜索框创建完成\n"));
+
+    // 子类化搜索容器以转发 WM_COMMAND 消息到主窗口
+    if (m_searchContainer.IsWindow()) {
+        m_originalSearchContainerWndProc = (WNDPROC)::SetWindowLongPtr(
+            m_searchContainer.m_hWnd, GWLP_WNDPROC, (LONG_PTR)SearchContainerWndProc);
+        ::SetWindowLongPtr(m_searchContainer.m_hWnd, GWLP_USERDATA, (LONG_PTR)m_originalSearchContainerWndProc);
+    }
 
     // 搜索容器加入 ReBar
     REBARBANDINFO rbbiSearch = { sizeof(REBARBANDINFO) };
@@ -327,6 +366,8 @@ LRESULT CMainFrame::OnCreate(UINT, WPARAM, LPARAM, BOOL&)
     if (m_detailPanel.IsWindow()) {
         m_originalDetailPanelWndProc = (WNDPROC)::SetWindowLongPtr(
             m_detailPanel.m_hWnd, GWLP_WNDPROC, (LONG_PTR)DetailPanelWndProc);
+        // 保存原始窗口过程到 GWLP_USERDATA 供 DetailPanelWndProc 使用
+        ::SetWindowLongPtr(m_detailPanel.m_hWnd, GWLP_USERDATA, (LONG_PTR)m_originalDetailPanelWndProc);
     }
 
     m_mainSplitter.SetSplitterPanes(m_todoList, m_doneList);
@@ -477,17 +518,12 @@ LRESULT CMainFrame::OnDestroy(UINT, WPARAM, LPARAM, BOOL&)
     }
 
     // 必须：恢复原始窗口过程，防止退出崩溃
-    if (m_rebar.IsWindow() && m_originalReBarWndProc) {
-        ::SetWindowLongPtr(m_rebar.m_hWnd, GWLP_WNDPROC, (LONG_PTR)m_originalReBarWndProc);
+    // 注：只恢复实际被子类化的窗口（目前只有 m_detailPanel）
+    if (m_detailPanel.IsWindow() && m_originalDetailPanelWndProc) {
+        ::SetWindowLongPtr(m_detailPanel.m_hWnd, GWLP_WNDPROC, (LONG_PTR)m_originalDetailPanelWndProc);
     }
     if (m_searchContainer.IsWindow() && m_originalSearchContainerWndProc) {
         ::SetWindowLongPtr(m_searchContainer.m_hWnd, GWLP_WNDPROC, (LONG_PTR)m_originalSearchContainerWndProc);
-    }
-    if (m_projectFilter.IsWindow() && m_originalComboWndProc) {
-        ::SetWindowLongPtr(m_projectFilter.m_hWnd, GWLP_WNDPROC, (LONG_PTR)m_originalComboWndProc);
-    }
-    if (m_detailPanel.IsWindow() && m_originalDetailPanelWndProc) {
-        ::SetWindowLongPtr(m_detailPanel.m_hWnd, GWLP_WNDPROC, (LONG_PTR)m_originalDetailPanelWndProc);
     }
 
     return 0;
@@ -601,6 +637,9 @@ LRESULT CMainFrame::OnSize(UINT, WPARAM, LPARAM, BOOL& bHandled)
         y += lineHeight + gapSmall;
 
         m_detailEndTime.MoveWindow(x, y, width, lineHeight);
+        y += lineHeight + gapSmall;
+
+        m_detailProject.MoveWindow(x, y, width, lineHeight);
         y += lineHeight + gapSmall;
 
         // 保留按钮区域高度
@@ -773,11 +812,6 @@ LRESULT CMainFrame::OnCommand(UINT /*uMsg*/, WPARAM wParam, LPARAM lParam, BOOL&
             OnProjectFilterChanged(0, 0, NULL, bHandled);
             return 0;
         }
-        // 检查是否是项目筛选下拉框的 CBN_EDITCHANGE 通知（手动输入）
-        if (id == ID_PROJECT_FILTER && HIWORD(wParam) == CBN_EDITCHANGE) {
-            OnProjectFilterChanged(0, 0, NULL, bHandled);
-            return 0;
-        }
         bHandled = FALSE;
         return 0;
     }
@@ -809,7 +843,7 @@ void CMainFrame::SetupLists()
 
     m_doneList.InsertColumn(0, L"优先级", LVCFMT_CENTER, MulDiv(50, dpi, 96));
     m_doneList.InsertColumn(1, L"任务描述", LVCFMT_LEFT, MulDiv(380, dpi, 96));
-    m_doneList.InsertColumn(2, L"完成时间", LVCFMT_RIGHT, MulDiv(120, dpi, 96));
+    m_doneList.InsertColumn(2, L"完成时间", LVCFMT_CENTER, MulDiv(120, dpi, 96));
 }
 
 void CMainFrame::UpdateLists()
@@ -937,6 +971,11 @@ void CMainFrame::CreateDetailPanelControls()
         WS_EX_CLIENTEDGE);
     m_detailEndTime.SetFont(hNormalFont);
 
+    m_detailProject.Create(m_detailPanel, rcDefault, _T("分组："),
+        WS_CHILD | ES_LEFT | ES_READONLY | ES_AUTOHSCROLL,
+        WS_EX_CLIENTEDGE);
+    m_detailProject.SetFont(hNormalFont);
+
     m_detailNote.Create(m_detailPanel, rcDefault, _T("备注："),
         WS_CHILD | ES_LEFT | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL | ES_WANTRETURN,
         WS_EX_CLIENTEDGE);
@@ -963,6 +1002,7 @@ void CMainFrame::UpdateDetailPanel(int index, bool isDoneList)
         m_detailDescription.ShowWindow(SW_HIDE);
         m_detailCreateTime.ShowWindow(SW_HIDE);
         m_detailEndTime.ShowWindow(SW_HIDE);
+        m_detailProject.ShowWindow(SW_HIDE);
         m_detailNote.ShowWindow(SW_HIDE);
 
         // 隐藏按钮
@@ -981,6 +1021,7 @@ void CMainFrame::UpdateDetailPanel(int index, bool isDoneList)
     m_detailDescription.ShowWindow(SW_SHOW);
     m_detailCreateTime.ShowWindow(SW_SHOW);
     m_detailEndTime.ShowWindow(SW_SHOW);
+    m_detailProject.ShowWindow(SW_SHOW);
     m_detailNote.ShowWindow(SW_SHOW);
 
     // 显示按钮
@@ -1005,6 +1046,9 @@ void CMainFrame::UpdateDetailPanel(int index, bool isDoneList)
     }
     m_detailEndTime.SetWindowText(strText);
 
+    strText.Format(_T("分组：%s"), pItem->project.empty() ? _T("(无)") : pItem->project.c_str());
+    m_detailProject.SetWindowText(strText);
+
     strText.Format(_T("备注：%s"), pItem->note.empty() ? _T("(无)") : pItem->note.c_str());
     m_detailNote.SetWindowText(strText);
 
@@ -1028,6 +1072,9 @@ void CMainFrame::UpdateDetailPanel(int index, bool isDoneList)
     y += lineHeight + gapSmall;
 
     m_detailEndTime.MoveWindow(x, y, width, lineHeight);
+    y += lineHeight + gapSmall;
+
+    m_detailProject.MoveWindow(x, y, width, lineHeight);
     y += lineHeight + gapSmall;
 
     // 保留按钮区域高度
@@ -1417,11 +1464,12 @@ LRESULT CMainFrame::ChangePriority(Priority newPriority)
         const TodoItem* pItem = m_dataManager.GetItemAt(m_nSelectedIndex, m_bSelectedIsDone);
         if (pItem) {
             UINT id = pItem->id;
+            // 先拷贝数据，避免 ChangePriority 导致 vector 重排后 pItem 失效
+            TodoItem updatedItem = *pItem;
+            updatedItem.priority = newPriority;
             if (m_dataManager.ChangePriority(id, newPriority, m_bSelectedIsDone)) {
                 CSQLiteManager dbManager;
                 if (dbManager.Initialize()) {
-                    TodoItem updatedItem = *pItem;
-                    updatedItem.priority = newPriority;
                     dbManager.UpdateTodo(updatedItem);
                 }
                 UpdateLists();
@@ -1466,11 +1514,11 @@ void CMainFrame::ExportToCSV()
                 std::wstring strTitle = EscapeCSV(item.title);
                 std::wstring strProject = EscapeCSV(item.project);
                 _ftprintf(fp, _T("%s,%s,%s,%s,%s\n"),
-                    (LPCTSTR)item.GetPriorityString(),
-                    (LPCTSTR)strTitle.c_str(),
-                    (LPCTSTR)strProject.c_str(),
-                    (LPCTSTR)item.GetCreateTimeString(),
-                    (LPCTSTR)item.GetEndTimeString());
+                    item.GetPriorityString(),
+                    strTitle.c_str(),
+                    strProject.c_str(),
+                    item.GetCreateTimeString(),
+                    item.GetEndTimeString());
             }
 
             _ftprintf(fp, _T("\nDone 列表\n"));
@@ -1479,10 +1527,10 @@ void CMainFrame::ExportToCSV()
                 std::wstring strTitle = EscapeCSV(item.title);
                 std::wstring strProject = EscapeCSV(item.project);
                 _ftprintf(fp, _T("%s,%s,%s,%s\n"),
-                    (LPCTSTR)item.GetPriorityString(),
-                    (LPCTSTR)strTitle.c_str(),
-                    (LPCTSTR)strProject.c_str(),
-                    (LPCTSTR)item.GetDoneTimeString());
+                    item.GetPriorityString(),
+                    strTitle.c_str(),
+                    strProject.c_str(),
+                    item.GetDoneTimeString());
             }
 
             fclose(fp);
@@ -1837,6 +1885,12 @@ void CMainFrame::LoadWindowSettings()
         }
 
         RegCloseKey(hKey);
+    }
+
+    // 应用分割条位置
+    if (m_nSplitterPos > 0 && m_mainSplitter.IsWindow()) {
+        m_mainSplitter.SetSplitterPos(m_nSplitterPos);
+        m_bFirstSize = false;  // 防止 OnSize 中再次覆盖
     }
 }
 
