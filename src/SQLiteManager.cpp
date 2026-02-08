@@ -146,7 +146,7 @@ bool CSQLiteManager::LoadItems(std::vector<TodoItem>& items, bool isDone)
         if (endTime > 0) {
             item.targetEndTime = CTime(endTime);
         } else {
-            item.targetEndTime = CTime::GetCurrentTime();
+            item.targetEndTime = CTime();
         }
 
         sqlite3_int64 doneTime = sqlite3_column_int64(stmt, 7);

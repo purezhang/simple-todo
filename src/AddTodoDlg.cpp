@@ -1,6 +1,25 @@
 #include "stdafx.h"
 #include "AddTodoDlg.h"
 
+#ifdef _DEBUG
+static void DebugTick(const TCHAR* tag)
+{
+    TCHAR buf[256];
+    _stprintf_s(buf, _T("[AddTodoDlg] %s @ %llu ms\n"), tag, (unsigned long long)GetTickCount64());
+    ::OutputDebugString(buf);
+}
+
+static void DebugSpan(const TCHAR* tag, ULONGLONG start, ULONGLONG end)
+{
+    TCHAR buf[256];
+    _stprintf_s(buf, _T("[AddTodoDlg] %s Δ=%llums\n"), tag, (unsigned long long)(end - start));
+    ::OutputDebugString(buf);
+}
+#else
+static void DebugTick(const TCHAR*) {}
+static void DebugSpan(const TCHAR*, ULONGLONG, ULONGLONG) {}
+#endif
+
 // 辅助函数：CTime 转 SYSTEMTIME
 static void TimeToSystemTime(const CTime& time, SYSTEMTIME& st)
 {
@@ -49,9 +68,10 @@ void CAddTodoDlg::SetTodoItem(const TodoItem& item)
 
 LRESULT CAddTodoDlg::OnInitDialog(UINT, WPARAM, LPARAM, BOOL&)
 {
-#ifdef _DEBUG
-    ::OutputDebugString(_T("CAddTodoDlg::OnInitDialog called\n"));
-#endif
+    ULONGLONG t0 = GetTickCount64();
+    m_initStartTick = t0;
+    DebugTick(_T("OnInitDialog BEGIN"));
+    m_isInitializing = true;
 
     // 获取控件
     m_comboPriority = GetDlgItem(IDC_PRIORITY_COMBO);
@@ -85,46 +105,69 @@ LRESULT CAddTodoDlg::OnInitDialog(UINT, WPARAM, LPARAM, BOOL&)
     m_comboPriority.AddString(_T("P2 普通"));
     m_comboPriority.AddString(_T("P3 暂缓"));
 
-    // 初始化项目下拉框
-    UpdateProjectCombo();
+    // 初始化项目下拉框：只放当前项目（如果有），完整列表延迟到下拉
+    ULONGLONG tProjBegin = GetTickCount64();
+    m_projectsLoaded = false;
+    m_comboProject.ResetContent();
+    m_comboProject.AddString(L"[无]");
+    if (!m_item.project.empty()) {
+        m_comboProject.AddString(m_item.project.c_str());
+        m_comboProject.SetCurSel(1);
+    } else {
+        m_comboProject.SetCurSel(0);
+    }
+    DebugSpan(_T("InitProjectComboMinimal"), tProjBegin, GetTickCount64());
 
     // 根据任务数据初始化控件
     // 1. 标题
+    ULONGLONG tTitle = GetTickCount64();
     m_editTitle.SetWindowText(m_item.title.c_str());
+    DebugSpan(_T("SetTitleText"), tTitle, GetTickCount64());
 
     // 2. 备注
+    ULONGLONG tNote = GetTickCount64();
     m_editNote.SetWindowText(m_item.note.c_str());
+    DebugSpan(_T("SetNoteText"), tNote, GetTickCount64());
 
     // 3. 优先级
+    ULONGLONG tPriority = GetTickCount64();
     m_comboPriority.SetCurSel((int)m_item.priority);
+    DebugSpan(_T("SetPrioritySel"), tPriority, GetTickCount64());
 
     // 4. 项目
-    if (!m_item.project.empty()) {
-        int found = m_comboProject.FindStringExact(-1, m_item.project.c_str());
-        if (found >= 0) {
-            m_comboProject.SetCurSel(found);
-        } else {
-            // 如果项目不存在，添加到下拉框并选中
-            m_comboProject.AddString(m_item.project.c_str());
-            m_comboProject.SetCurSel(m_comboProject.GetCount() - 1);
-        }
-    } else {
-        // 默认选中"无"选项
-        m_comboProject.SetCurSel(0);
-    }
+    DebugSpan(_T("SetProjectSel"), tProjBegin, GetTickCount64());
 
     // 5. 日期时间
     {
+        ULONGLONG tDate = GetTickCount64();
         SYSTEMTIME st = {0};
         TimeToSystemTime(m_item.targetEndTime, st);
         DateTime_SetSystemtime(m_dateTime, GDT_VALID, &st);
+        DebugSpan(_T("SetDateTime"), tDate, GetTickCount64());
     }
 
     // 设置焦点到标题输入框
     m_editTitle.SetFocus();
 
+    ULONGLONG tCenter = GetTickCount64();
     CenterWindow(GetParent());
+    DebugSpan(_T("CenterWindow"), tCenter, GetTickCount64());
+    m_isInitializing = false;
+    DebugTick(_T("OnInitDialog END"));
+    DebugSpan(_T("OnInitDialog TOTAL"), t0, GetTickCount64());
+    ::PostMessage(m_hWnd, WM_APP + 1, 0, 0);
     return FALSE; // 返回 FALSE 表示我们已经设置了焦点
+}
+
+LRESULT CAddTodoDlg::OnAfterInit(UINT, WPARAM, LPARAM, BOOL&)
+{
+    if (m_initStartTick != 0) {
+        DebugSpan(_T("Dialog Ready (message pump)"), m_initStartTick, GetTickCount64());
+    }
+    if (m_invokeTick != 0) {
+        DebugSpan(_T("Click->Ready"), m_invokeTick, GetTickCount64());
+    }
+    return 0;
 }
 
 LRESULT CAddTodoDlg::OnOK(WORD, WORD, HWND, BOOL&)
@@ -193,12 +236,16 @@ LRESULT CAddTodoDlg::OnTitleChange(WORD wNotifyCode, WORD wID, HWND hWndCtl, BOO
         bHandled = FALSE;
         return 0;
     }
+    if (m_isInitializing) {
+        return 0;
+    }
 
     // 获取当前输入的文本
     CString strText;
     m_editTitle.GetWindowText(strText);
 
     // 尝试解析自然语言
+    DebugTick(_T("OnTitleChange"));
     ParseNaturalLanguage(strText.GetString());
 
     return 0;
@@ -311,6 +358,8 @@ void CAddTodoDlg::ParseNaturalLanguage(const std::wstring& text)
 
 void CAddTodoDlg::UpdateProjectCombo()
 {
+    DebugTick(_T("UpdateProjectCombo BEGIN"));
+    m_comboProject.SetRedraw(FALSE);
     // 清空下拉框
     m_comboProject.ResetContent();
 
@@ -324,10 +373,34 @@ void CAddTodoDlg::UpdateProjectCombo()
 
     // 默认选中"无"
     m_comboProject.SetCurSel(0);
+    m_comboProject.SetRedraw(TRUE);
+    m_comboProject.Invalidate();
+    DebugTick(_T("UpdateProjectCombo END"));
 }
 
 LRESULT CAddTodoDlg::OnProjectSelChange(WORD, WORD, HWND, BOOL&)
 {
     // 可以在这里处理项目选择变化
+    return 0;
+}
+
+LRESULT CAddTodoDlg::OnProjectDropDown(WORD, WORD, HWND, BOOL&)
+{
+    if (m_projectsLoaded) return 0;
+    m_projectsLoaded = true;
+
+    // 记住当前选择的文本（可能是当前项目）
+    CString currentText;
+    m_comboProject.GetWindowText(currentText);
+
+    UpdateProjectCombo();
+
+    if (!currentText.IsEmpty()) {
+        int found = m_comboProject.FindStringExact(-1, currentText);
+        if (found >= 0) {
+            m_comboProject.SetCurSel(found);
+        }
+    }
+
     return 0;
 }

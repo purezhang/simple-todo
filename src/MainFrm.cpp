@@ -12,6 +12,19 @@
     #define DEBUG_OUTPUT(msg) ((void)0)
 #endif
 
+#ifdef _DEBUG
+static void DebugCommandSource(const TCHAR* tag, WPARAM wParam, LPARAM lParam, HWND hSelf)
+{
+    TCHAR buf[512];
+    HWND hFocus = ::GetFocus();
+    _stprintf_s(buf, _T("[CmdSrc] %s id=0x%04X code=0x%04X lParam=0x%p focus=0x%p self=0x%p\n"),
+        tag, LOWORD(wParam), HIWORD(wParam), (void*)lParam, (void*)hFocus, (void*)hSelf);
+    ::OutputDebugString(buf);
+}
+#else
+static void DebugCommandSource(const TCHAR*, WPARAM, LPARAM, HWND) {}
+#endif
+
 // 详情面板窗口过程（用于转发按钮消息）
 static LRESULT CALLBACK DetailPanelWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -717,12 +730,12 @@ LRESULT CMainFrame::OnNotify(UINT, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
             UpdateDetailPanel(index, bIsDone);
             
             if (pnmh->code == NM_RCLICK) {
-                SendMessage(WM_COMMAND, ID_TODO_CONTEXT_MENU, MAKELPARAM(index, bIsDone ? 1 : 0));
+                SendMessage(WM_COMMAND, MAKEWPARAM(ID_TODO_CONTEXT_MENU, bIsDone ? 1 : 0), (LPARAM)index);
                 bHandled = TRUE;
                 return 0;
             }
             else if (pnmh->code == NM_DBLCLK) {
-                SendMessage(WM_COMMAND, ID_TODO_EDIT, MAKELPARAM(index, bIsDone ? 1 : 0));
+                SendMessage(WM_COMMAND, MAKEWPARAM(ID_TODO_EDIT, bIsDone ? 1 : 0), (LPARAM)index);
                 bHandled = TRUE;
                 return 0;
             }
@@ -747,6 +760,7 @@ LRESULT CMainFrame::OnCommand(UINT /*uMsg*/, WPARAM wParam, LPARAM lParam, BOOL&
     _stprintf_s(szDebug, _T("[OnCommand] id=0x%04X (%u), code=0x%04X, lParam=0x%08X\n"),
         id, id, code, (UINT_PTR)lParam);
     DEBUG_OUTPUT(szDebug);
+    DebugCommandSource(_T("OnCommand"), wParam, lParam, m_hWnd);
 
     switch (id) {
     case ID_TODO_ADD:
@@ -783,6 +797,11 @@ LRESULT CMainFrame::OnCommand(UINT /*uMsg*/, WPARAM wParam, LPARAM lParam, BOOL&
         }
         break;
     case ID_TODO_DELETE:
+        if (HIWORD(wParam) != 0 || lParam != 0) {
+            int index = (int)lParam;
+            bool isDoneList = HIWORD(wParam) != 0;
+            return OnTodoDelete(0, 0, MAKELPARAM(index, isDoneList ? 1 : 0), bHandled);
+        }
         if (m_nSelectedIndex >= 0) {
             return OnTodoDelete(0, 0, MAKELPARAM(m_nSelectedIndex, m_bSelectedIsDone ? 1 : 0), bHandled);
         }
@@ -791,8 +810,8 @@ LRESULT CMainFrame::OnCommand(UINT /*uMsg*/, WPARAM wParam, LPARAM lParam, BOOL&
     case ID_TODO_EDIT:
     case ID_TODO_CONTEXT_MENU:
         {
-            int index = LOWORD(lParam);
-            bool isDoneList = HIWORD(lParam) != 0;
+            int index = (int)lParam;
+            bool isDoneList = HIWORD(wParam) != 0;
             if (id == ID_TODO_COMPLETE) {
                 return OnTodoComplete(0, 0, MAKELPARAM(index, isDoneList ? 1 : 0), bHandled);
             } else if (id == ID_TODO_EDIT) {
@@ -1035,7 +1054,7 @@ void CMainFrame::UpdateDetailPanel(int index, bool isDoneList)
         return;
     }
 
-    const TodoItem* pItem = m_dataManager.GetItemAt(index, isDoneList);
+    const TodoItem* pItem = GetItemByDisplayIndex(index, isDoneList);
     if (!pItem) {
         return;
     }
@@ -1164,6 +1183,13 @@ void CMainFrame::HideDetailPopup()
 LRESULT CMainFrame::OnTodoAdd(WORD, WORD, HWND, BOOL&)
 {
     DEBUG_OUTPUT(_T("OnTodoAdd called\n"));
+    if (m_bDialogOpen) {
+        DEBUG_OUTPUT(_T("[OnTodoAdd] Dialog already open, ignore\n"));
+        return 0;
+    }
+    ULONGLONG t0 = GetTickCount64();
+    m_bDialogOpen = true;
+    DEBUG_OUTPUT(_T("[OnTodoAdd] BEGIN\n"));
 
     CAddTodoDlg dlg;
     
@@ -1182,8 +1208,15 @@ LRESULT CMainFrame::OnTodoAdd(WORD, WORD, HWND, BOOL&)
     }
     projects.assign(projectSet.begin(), projectSet.end());
     dlg.SetProjects(projects);
+    dlg.SetInvokeTick(t0);
 
+    DEBUG_OUTPUT(_T("[OnTodoAdd] Before DoModal\n"));
     INT_PTR nRet = dlg.DoModal();
+    DEBUG_OUTPUT(_T("[OnTodoAdd] After DoModal\n"));
+    m_bDialogOpen = false;
+    TCHAR szTime[128];
+    _stprintf_s(szTime, _T("[OnTodoAdd] DoModal Δ=%llums\n"), (unsigned long long)(GetTickCount64() - t0));
+    DEBUG_OUTPUT(szTime);
 
     if (nRet == IDOK) {
         DEBUG_OUTPUT(_T("Dialog returned IDOK\n"));
@@ -1266,17 +1299,16 @@ LRESULT CMainFrame::OnTodoComplete(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lPar
     int index = LOWORD(lParam);
     bool isDoneList = HIWORD(lParam) != 0;
 
-    if (index >= 0) {
-        const TodoItem* pItem = m_dataManager.GetItemAt(index, isDoneList);
-        if (pItem) {
-            UINT id = pItem->id;
-            if (m_dataManager.CompleteTodo(id)) {
-                CSQLiteManager dbManager;
-                if (dbManager.Initialize()) {
-                    dbManager.MoveTodo(id, true);
-                }
-                UpdateLists();
+    if (index >= 0 && !isDoneList) {
+        UINT id = GetItemIdByDisplayIndex(index, false);
+        if (id > 0 && m_dataManager.CompleteTodo(id)) {
+            CSQLiteManager dbManager;
+            if (dbManager.Initialize()) {
+                dbManager.MoveTodo(id, true);
             }
+            UpdateLists();
+            ReselectById(id, true);
+            m_doneList.SetFocus();
         }
     }
 
@@ -1290,17 +1322,16 @@ LRESULT CMainFrame::OnTodoDelete(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam
     bool isDoneList = HIWORD(lParam) != 0;
 
     if (index >= 0) {
-        const TodoItem* pItem = m_dataManager.GetItemAt(index, isDoneList);
-        if (pItem) {
-            UINT id = pItem->id;
-            if (m_dataManager.DeleteTodo(id, isDoneList)) {
-                CSQLiteManager dbManager;
-                if (dbManager.Initialize()) {
-                    dbManager.DeleteTodo(id);
-                }
-                UpdateLists();
-                HideDetailPopup();
+        UINT id = GetItemIdByDisplayIndex(index, isDoneList);
+        if (id > 0 && m_dataManager.DeleteTodo(id, isDoneList)) {
+            CSQLiteManager dbManager;
+            if (dbManager.Initialize()) {
+                dbManager.DeleteTodo(id);
             }
+            UpdateLists();
+            m_todoList.SetItemState(-1, 0, LVIS_SELECTED | LVIS_FOCUSED);
+            m_doneList.SetItemState(-1, 0, LVIS_SELECTED | LVIS_FOCUSED);
+            HideDetailPopup();
         }
     }
 
@@ -1314,10 +1345,24 @@ LRESULT CMainFrame::OnTodoEdit(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, 
     bool isDoneList = HIWORD(lParam) != 0;
 
     if (index >= 0) {
-        const TodoItem* pItem = m_dataManager.GetItemAt(index, isDoneList);
+        const TodoItem* pItem = GetItemByDisplayIndex(index, isDoneList);
         if (pItem) {
+            if (m_bDialogOpen) {
+                DEBUG_OUTPUT(_T("[OnTodoEdit] Dialog already open, ignore\n"));
+                bHandled = TRUE;
+                return 0;
+            }
+            ULONGLONG t0 = GetTickCount64();
+            m_bDialogOpen = true;
+            DEBUG_OUTPUT(_T("[OnTodoEdit] Before DoModal\n"));
             CAddTodoDlg dlg(*pItem);
+            dlg.SetInvokeTick(t0);
             INT_PTR nRet = dlg.DoModal();
+            DEBUG_OUTPUT(_T("[OnTodoEdit] After DoModal\n"));
+            m_bDialogOpen = false;
+            TCHAR szTime[128];
+            _stprintf_s(szTime, _T("[OnTodoEdit] DoModal Δ=%llums\n"), (unsigned long long)(GetTickCount64() - t0));
+            DEBUG_OUTPUT(szTime);
 
             if (nRet == IDOK) {
                 TodoItem updatedItem = dlg.GetResult();
@@ -1331,10 +1376,9 @@ LRESULT CMainFrame::OnTodoEdit(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, 
                     if (dbManager.Initialize()) {
                         dbManager.UpdateTodo(updatedItem);
                     }
-        UpdateLists();
-        UpdateProjectFilterList();
-                    ShowDetailPopup();
-                    UpdateDetailPanel(index, isDoneList);
+                    UpdateLists();
+                    UpdateProjectFilterList();
+                    ReselectById(updatedItem.id, isDoneList);
                 }
             }
         }
@@ -1366,16 +1410,14 @@ LRESULT CMainFrame::OnTodoContextMenu(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM l
 LRESULT CMainFrame::OnContextMarkDone(WORD, WORD, HWND, BOOL&)
 {
     if (m_nSelectedIndex >= 0 && !m_bSelectedIsDone) {
-        const TodoItem* pItem = m_dataManager.GetItemAt(m_nSelectedIndex, false);
-        if (pItem) {
-            UINT id = pItem->id;
-            if (m_dataManager.CompleteTodo(id)) {
-                CSQLiteManager dbManager;
-                if (dbManager.Initialize()) {
-                    dbManager.MoveTodo(id, true);
-                }
-                UpdateLists();
+        UINT id = GetItemIdByDisplayIndex(m_nSelectedIndex, false);
+        if (id > 0 && m_dataManager.CompleteTodo(id)) {
+            CSQLiteManager dbManager;
+            if (dbManager.Initialize()) {
+                dbManager.MoveTodo(id, true);
             }
+            UpdateLists();
+            ReselectById(id, true);
         }
     }
     return 0;
@@ -1384,7 +1426,7 @@ LRESULT CMainFrame::OnContextMarkDone(WORD, WORD, HWND, BOOL&)
 LRESULT CMainFrame::OnContextPin(WORD, WORD, HWND, BOOL&)
 {
     if (m_nSelectedIndex >= 0 && !m_bSelectedIsDone) {
-        const TodoItem* pItem = m_dataManager.GetItemAt(m_nSelectedIndex, false);
+        const TodoItem* pItem = GetItemByDisplayIndex(m_nSelectedIndex, false);
         if (pItem) {
             TodoItem item = *pItem;
             item.isPinned = !item.isPinned;
@@ -1395,6 +1437,7 @@ LRESULT CMainFrame::OnContextPin(WORD, WORD, HWND, BOOL&)
                     dbManager.UpdateTodo(item);
                 }
                 UpdateLists();
+                ReselectById(item.id, false);
             }
         }
     }
@@ -1404,7 +1447,7 @@ LRESULT CMainFrame::OnContextPin(WORD, WORD, HWND, BOOL&)
 LRESULT CMainFrame::OnContextCopyText(WORD, WORD, HWND, BOOL&)
 {
     if (m_nSelectedIndex >= 0) {
-        const TodoItem* pItem = m_dataManager.GetItemAt(m_nSelectedIndex, m_bSelectedIsDone);
+        const TodoItem* pItem = GetItemByDisplayIndex(m_nSelectedIndex, m_bSelectedIsDone);
         if (pItem) {
             CString strText;
             CString strTitle(pItem->title.c_str());
@@ -1466,7 +1509,7 @@ void CMainFrame::ShowContextMenu(int index, bool isDoneList, POINT pt)
         menu.AppendMenu(MF_STRING, ID_CONTEXT_MARK_DONE, L"标记为完成");
         menu.AppendMenu(MF_STRING, ID_CONTEXT_EDIT, L"编辑");
         
-        const TodoItem* pItem = m_dataManager.GetItemAt(index, isDoneList);
+        const TodoItem* pItem = GetItemByDisplayIndex(index, isDoneList);
         if (pItem) {
             if (pItem->isPinned) {
                 menu.AppendMenu(MF_STRING, ID_CONTEXT_PIN, L"取消置顶");
@@ -1495,7 +1538,7 @@ void CMainFrame::ShowContextMenu(int index, bool isDoneList, POINT pt)
 LRESULT CMainFrame::ChangePriority(Priority newPriority)
 {
     if (m_nSelectedIndex >= 0) {
-        const TodoItem* pItem = m_dataManager.GetItemAt(m_nSelectedIndex, m_bSelectedIsDone);
+        const TodoItem* pItem = GetItemByDisplayIndex(m_nSelectedIndex, m_bSelectedIsDone);
         if (pItem) {
             UINT id = pItem->id;
             // 先拷贝数据，避免 ChangePriority 导致 vector 重排后 pItem 失效
@@ -1507,6 +1550,7 @@ LRESULT CMainFrame::ChangePriority(Priority newPriority)
                     dbManager.UpdateTodo(updatedItem);
                 }
                 UpdateLists();
+                ReselectById(id, m_bSelectedIsDone);
             }
         }
     }
@@ -1970,4 +2014,37 @@ void CMainFrame::SaveWindowSettings()
 
         RegCloseKey(hKey);
     }
+}
+
+const TodoItem* CMainFrame::GetItemByDisplayIndex(int displayIndex, bool isDoneList) const
+{
+    if (displayIndex < 0) return nullptr;
+    return isDoneList
+        ? m_doneList.GetItemByDisplayIndex(displayIndex)
+        : m_todoList.GetItemByDisplayIndex(displayIndex);
+}
+
+UINT CMainFrame::GetItemIdByDisplayIndex(int displayIndex, bool isDoneList) const
+{
+    if (displayIndex < 0) return 0;
+    return isDoneList
+        ? m_doneList.GetItemIdByDisplayIndex(displayIndex)
+        : m_todoList.GetItemIdByDisplayIndex(displayIndex);
+}
+
+bool CMainFrame::ReselectById(UINT id, bool isDoneList)
+{
+    if (id == 0) return false;
+    CTodoListCtrl& list = isDoneList ? m_doneList : m_todoList;
+    int displayIndex = list.FindDisplayIndexById(id);
+    if (displayIndex < 0) return false;
+
+    list.SetItemState(displayIndex, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);
+    list.EnsureVisible(displayIndex, FALSE);
+
+    m_nSelectedIndex = displayIndex;
+    m_bSelectedIsDone = isDoneList;
+    ShowDetailPopup();
+    UpdateDetailPanel(displayIndex, isDoneList);
+    return true;
 }

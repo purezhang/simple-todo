@@ -10,9 +10,11 @@ public:
 
     BEGIN_MSG_MAP(CAddTodoDlg)
         MESSAGE_HANDLER(WM_INITDIALOG, OnInitDialog)
+        MESSAGE_HANDLER(WM_APP + 1, OnAfterInit)
         COMMAND_ID_HANDLER(IDOK, OnOK)
         COMMAND_ID_HANDLER(IDCANCEL, OnCancel)
         COMMAND_CODE_HANDLER(EN_CHANGE, OnTitleChange)
+        COMMAND_HANDLER(IDC_PROJECT_COMBO, CBN_DROPDOWN, OnProjectDropDown)
         COMMAND_ID_HANDLER(IDC_TODAY_BTN, OnTodayBtn)
         COMMAND_ID_HANDLER(IDC_TOMORROW_BTN, OnTomorrowBtn)
         COMMAND_ID_HANDLER(IDC_THIS_WEEK_BTN, OnThisWeekBtn)
@@ -23,6 +25,7 @@ public:
     CAddTodoDlg(const TodoItem& item);
     TodoItem GetResult() const { return m_item; }
     void SetTodoItem(const TodoItem& item);
+    void SetInvokeTick(ULONGLONG tick) { m_invokeTick = tick; }
 
     // 设置可用的项目列表
     void SetProjects(const std::vector<std::wstring>& projects) {
@@ -37,10 +40,16 @@ public:
     LRESULT OnTomorrowBtn(WORD, WORD, HWND, BOOL&);
     LRESULT OnThisWeekBtn(WORD, WORD, HWND, BOOL&);
     LRESULT OnProjectSelChange(WORD, WORD, HWND, BOOL&);
+    LRESULT OnProjectDropDown(WORD, WORD, HWND, BOOL&);
+    LRESULT OnAfterInit(UINT, WPARAM, LPARAM, BOOL&);
 
 private:
     TodoItem m_item;
     std::vector<std::wstring> m_projects;  // 可用项目列表
+    bool m_isInitializing = false;
+    ULONGLONG m_initStartTick = 0;
+    ULONGLONG m_invokeTick = 0;
+    bool m_projectsLoaded = false;
 
     CComboBox m_comboPriority;
     CComboBox m_comboProject;  // 项目下拉框

@@ -123,6 +123,7 @@ private:
     bool m_bTopmost = false;
     bool m_bFirstSize = true;
     bool m_bDetailVisible = false;
+    bool m_bDialogOpen = false;
 
     // 筛选状态
     enum class TimeFilter { All = 0, Today = 1, ThisWeek = 2 };
@@ -156,6 +157,9 @@ private:
     void SaveWindowSettings();
 
     std::wstring EscapeCSV(const std::wstring& s);
+    const TodoItem* GetItemByDisplayIndex(int displayIndex, bool isDoneList) const;
+    UINT GetItemIdByDisplayIndex(int displayIndex, bool isDoneList) const;
+    bool ReselectById(UINT id, bool isDoneList);
 
 private:
     // 手动子类化：保存原始窗口过程（用于详情面板按钮消息转发）

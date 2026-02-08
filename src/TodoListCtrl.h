@@ -129,6 +129,15 @@ public:
         const TodoItem* pItem = GetItemByDisplayIndex(displayIndex);
         return pItem ? pItem->id : 0;
     }
+    
+    int FindDisplayIndexById(UINT id) const {
+        if (!m_pDataManager || id == 0) return -1;
+        for (int i = 0; i < static_cast<int>(m_displayToDataIndex.size()); ++i) {
+            const TodoItem* pItem = GetItemByDisplayIndex(i);
+            if (pItem && pItem->id == id) return i;
+        }
+        return -1;
+    }
 
     // ========================================================================
     // OnGetDispInfo - 虚拟列表数据提供
@@ -313,10 +322,7 @@ public:
 
     // 双击事件 - 编辑任务
     LRESULT OnDblClick(int, LPNMHDR pnmh, BOOL&) {
-        NMITEMACTIVATE* pItemAct = reinterpret_cast<NMITEMACTIVATE*>(pnmh);
-        if (pItemAct->iItem >= 0) {
-            NotifyParentEditTask(pItemAct->iItem);
-        }
+        // 由父窗口 OnNotify 统一处理
         return 0;
     }
 
@@ -337,10 +343,7 @@ public:
 
     // 右键菜单
     LRESULT OnRClick(int, LPNMHDR pnmh, BOOL&) {
-        NMITEMACTIVATE* pItemAct = reinterpret_cast<NMITEMACTIVATE*>(pnmh);
-        if (pItemAct->iItem >= 0) {
-            NotifyParentShowContextMenu(pItemAct->iItem, pItemAct->ptAction);
-        }
+        // 由父窗口 OnNotify 统一处理
         return 0;
     }
 
@@ -356,35 +359,26 @@ private:
     // 问题4: 通知父窗口时传递 item->id 而非 displayIndex
     // ========================================================================
     void NotifyParentCompleteTask(int displayIndex) {
-        UINT itemId = GetItemIdByDisplayIndex(displayIndex);
-        if (itemId > 0) {
-            ::PostMessage(GetParent(), WM_COMMAND, ID_TODO_COMPLETE,
-                MAKELPARAM(itemId, m_isDoneList ? 1 : 0));
-        }
+        ::PostMessage(GetParent(), WM_COMMAND,
+            MAKEWPARAM(ID_TODO_COMPLETE, m_isDoneList ? 1 : 0),
+            (LPARAM)displayIndex);
     }
 
     void NotifyParentDeleteTask(int displayIndex) {
-        UINT itemId = GetItemIdByDisplayIndex(displayIndex);
-        if (itemId > 0) {
-            ::PostMessage(GetParent(), WM_COMMAND, ID_TODO_DELETE,
-                MAKELPARAM(itemId, m_isDoneList ? 1 : 0));
-        }
+        ::PostMessage(GetParent(), WM_COMMAND,
+            MAKEWPARAM(ID_TODO_DELETE, m_isDoneList ? 1 : 0),
+            (LPARAM)displayIndex);
     }
 
     void NotifyParentEditTask(int displayIndex) {
-        UINT itemId = GetItemIdByDisplayIndex(displayIndex);
-        if (itemId > 0) {
-            ::PostMessage(GetParent(), WM_COMMAND, ID_TODO_EDIT,
-                MAKELPARAM(itemId, m_isDoneList ? 1 : 0));
-        }
+        ::PostMessage(GetParent(), WM_COMMAND,
+            MAKEWPARAM(ID_TODO_EDIT, m_isDoneList ? 1 : 0),
+            (LPARAM)displayIndex);
     }
 
     void NotifyParentShowContextMenu(int displayIndex, POINT pt) {
-        UINT itemId = GetItemIdByDisplayIndex(displayIndex);
-        if (itemId > 0) {
-            // 保存选中的 id 到父窗口可访问的位置
-            ::PostMessage(GetParent(), WM_COMMAND, ID_TODO_CONTEXT_MENU,
-                MAKELPARAM(itemId, m_isDoneList ? 1 : 0));
-        }
+        ::PostMessage(GetParent(), WM_COMMAND,
+            MAKEWPARAM(ID_TODO_CONTEXT_MENU, m_isDoneList ? 1 : 0),
+            (LPARAM)displayIndex);
     }
 };
