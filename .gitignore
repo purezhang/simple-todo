@@ -40,6 +40,12 @@ nul
 .claude/
 .trae/
 
+# Local environment (tokens, credentials)
+local/
+
 # Scripts directory (ignore obj files but keep scripts)
 scripts/*.obj
 scripts/vc140.pdb
+
+# Auto-generated version header
+src/version.h

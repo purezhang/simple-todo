@@ -150,12 +150,83 @@ $outputExe = Join-Path $outputDir "SimpleTodo.exe"
 $resFile = Join-Path $outputDir "SimpleTodo.res"
 $manifestPath = Join-Path $srcDir "SimpleTodo.exe.manifest"
 
+# =============================================================================
+# Pre-build Cleanup (Kill processes holding the exe)
+# =============================================================================
+
+# Kill any running SimpleTodo process to release file lock
+Write-Host "Checking for running SimpleTodo processes..."
+$processes = Get-Process SimpleTodo -ErrorAction SilentlyContinue
+if ($processes) {
+    Write-Host "Terminating running SimpleTodo processes..."
+    $processes | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Milliseconds 500
+}
+
+# Force delete the output exe if it exists and is locked
+if (Test-Path $outputExe) {
+    Write-Host "Attempting to release locked file: $outputExe"
+    try {
+        # Try to delete with multiple attempts
+        for ($i = 1; $i -le 3; $i++) {
+            try {
+                Remove-Item -Path $outputExe -Force -ErrorAction Stop
+                Write-Host "File released successfully."
+                break
+            }
+            catch {
+                if ($i -lt 3) {
+                    Write-Host "Retry $i/3 in 1 second..."
+                    Start-Sleep -Milliseconds 1000
+                }
+                else {
+                    Write-Host "WARNING: Could not delete locked file. Build may fail."
+                }
+            }
+        }
+    }
+    catch {
+        Write-Host "WARNING: Failed to remove locked file: $_"
+    }
+}
+
+# =============================================================================
+# Setup Build Log
+# =============================================================================
+
+# Create log directory
+$logDir = Join-Path $scriptRoot "bin\build-log"
+if (-not (Test-Path $logDir)) {
+    New-Item -ItemType Directory -Path $logDir | Out-Null
+}
+
+# Generate log filename with timestamp
+$timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+$logFile = Join-Path $logDir "simple-todo-$timestamp.log"
+
+# Start logging
+$logContent = @()
+$logContent += "========================================"
+$logContent += "Build started at $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+$logContent += "Configuration: $Configuration"
+$logContent += "========================================"
+$logContent += ""
+
+Write-Host "Build log: $logFile"
+
+# Helper function to add to log
+function Add-Log {
+    param([string]$Message)
+    $script:logContent += $Message
+    Write-Host $Message
+}
+
 # Rebuild / Clean logic
 if ($Rebuild) {
     if (Test-Path $outputDir) {
-        Write-Host "Cleaning output directory (preserving data): $outputDir"
+        Add-Log "Cleaning output directory (preserving data): $outputDir"
         Get-ChildItem -Path $outputDir | Where-Object { $_.Name -ne "data" } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-        Write-Host "Clean complete."
+        Add-Log "Clean complete."
     }
 }
 
@@ -164,9 +235,112 @@ if (!(Test-Path $outputDir)) {
 }
 
 # =============================================================================
+# Generate Version Header
+# =============================================================================
+
+Write-Host ""
+Add-Log "=== Version Info ==="
+
+# Get version from git
+$gitDescribe = $null
+$buildDate = Get-Date -Format "yyyyMMdd"
+$buildTime = Get-Date -Format "HHmmss"
+
+try {
+    # Try to get version from git tags
+    $gitDescribe = (git describe --tags --always 2>$null)
+    if ([string]::IsNullOrWhiteSpace($gitDescribe)) {
+        $gitDescribe = "dev"
+    }
+}
+catch {
+    $gitDescribe = "dev"
+}
+
+# Extract short commit hash from git describe output
+$shortCommit = ""
+if ($gitDescribe -match '-g([a-f0-9]+)$') {
+    $shortCommit = $Matches[1]
+} elseif ($gitDescribe -match '^([a-f0-9]+)$') {
+    $shortCommit = $gitDescribe
+} else {
+    $shortCommit = "unknown"
+}
+
+Add-Log "  Git describe: $gitDescribe"
+Add-Log "  Short commit: $shortCommit"
+Add-Log "  Build date:   $buildDate"
+Add-Log "  Build time:   $buildTime"
+Add-Log ""
+Add-Log "=== Generating version header ==="
+
+$versionHeaderPath = Join-Path $srcDir "version.h"
+
+# Generate version.h content
+# Parse version numbers from git describe (e.g., v0.5.0-1-g5159afa -> 0, 5, 0, 1)
+$vMajor = 0
+$vMinor = 0
+$vPatch = 0
+$vBuild = 0
+
+if ($gitDescribe -match '^v?(\d+)\.(\d+)\.(\d+)(?:-(\d+))?-g([a-f0-9]+)') {
+    $vMajor = [int]$Matches[1]
+    $vMinor = [int]$Matches[2]
+    $vPatch = [int]$Matches[3]
+    if ($Matches[4]) {
+        $vBuild = [int]$Matches[4]
+    }
+    # Short commit hash without 'g' prefix
+    $cleanVersion = "v$($Matches[1]).$($Matches[2]).$($Matches[3])-$($Matches[5])"
+} elseif ($gitDescribe -match '^v?(\d+)\.(\d+)\.(\d+)(?:-(\d+))?') {
+    $vMajor = [int]$Matches[1]
+    $vMinor = [int]$Matches[2]
+    $vPatch = [int]$Matches[3]
+    if ($Matches[4]) {
+        $vBuild = [int]$Matches[4]
+    }
+    $cleanVersion = $gitDescribe
+} else {
+    $cleanVersion = $gitDescribe
+}
+
+# Add debug suffix for debug builds
+$versionSuffix = ""
+if ($Configuration -eq "Debug") {
+    $versionSuffix = "-DEBUG"
+}
+
+$versionContent = @"
+// Auto-generated by build.ps1 - DO NOT EDIT
+#pragma once
+
+// String versions
+#define APP_VERSION_STRING L"$cleanVersion"
+#define APP_BUILD_DATE L"$buildDate$buildTime"
+#define APP_VERSION_FULL L"$cleanVersion$versionSuffix (build $buildDate-$buildTime)"
+
+// Numeric versions for RC file
+#define APP_VERSION_MAJOR $vMajor
+#define APP_VERSION_MINOR $vMinor
+#define APP_VERSION_PATCH $vPatch
+#define APP_VERSION_BUILD $vBuild
+#define APP_VERSION_CSV $vMajor,$vMinor,$vPatch,$vBuild
+#define APP_VERSION_STR "$vMajor.$vMinor.$vPatch.$vBuild"
+"@
+
+# Write to file
+$versionContent | Out-File -FilePath $versionHeaderPath -Encoding utf8 -Force
+
+Add-Log "  Version file: $versionHeaderPath"
+Add-Log "  Version string: $cleanVersion$versionSuffix"
+Add-Log "=== Version header generated ==="
+Add-Log ""
+
+# =============================================================================
 # Compile Resources
 # =============================================================================
 
+Add-Log "=== Starting compilation ==="
 Write-Host "Compiling resources... ($Configuration)"
 
 # Find latest SDK version for includes
@@ -189,7 +363,8 @@ if ($latestSdkInclude) {
 $rcArgs = @("/r", "/d", "WIN32")
 if ($Configuration -eq "Debug") {
     $rcArgs += "/d", "_DEBUG"
-} else {
+}
+else {
     $rcArgs += "/d", "NDEBUG"
 }
 
@@ -229,7 +404,8 @@ $clArgs += "/Fo$outputDir\"
 
 if ($Configuration -eq "Debug") {
     $clArgs += "/Od", "/Zi", "/MTd", "/D_DEBUG"
-} else {
+}
+else {
     $clArgs += "/O2", "/MT", "/DNDEBUG"
 }
 
@@ -294,15 +470,43 @@ $clArgs += $resFile
 
 # Execute compiler
 $clOutput = & $clPath $clArgs 2>&1
-if (-not $Quiet) {
-    $clOutput | Out-String | Write-Host
+$clExitCode = $LASTEXITCODE
+
+# Add compiler output to log
+foreach ($line in $clOutput) {
+    Add-Log $line
 }
 
-if (-not (Test-Path $outputExe)) {
-    Write-Host ""
-    Write-Host "========================================"
-    Write-Host "FAILURE: Compilation failed."
-    Write-Host "========================================"
+if ((-not (Test-Path $outputExe)) -or ($clExitCode -ne 0)) {
+    # Save log file before exiting
+    $logContent += ""
+    $logContent += "========================================"
+    $logContent += "BUILD FAILED"
+    $logContent += "Exit code: $clExitCode"
+    $logContent += "Output exe exists: $(Test-Path $outputExe)"
+    $logContent += "========================================"
+    $logContent | Out-File -FilePath $logFile -Encoding utf8
+
+    Add-Log ""
+    Add-Log "========================================"
+    Add-Log "FAILURE: Compilation failed."
+    Add-Log "Exit code: $clExitCode"
+    Add-Log "Log saved to: $logFile"
+    Add-Log "========================================"
+
+    # Check if exe exists but is stale (>3 minutes old)
+    if (Test-Path $outputExe) {
+        $exeAge = (Get-Date) - (Get-Item $outputExe).LastWriteTime
+        if ($exeAge.TotalMinutes -gt 3) {
+            Add-Log ""
+            Add-Log "WARNING: Output exe exists but is older than 3 minutes."
+            Add-Log "Possible issues:"
+            Add-Log "  1. Another process is holding the exe file"
+            Add-Log "  2. Antivirus software may be blocking the file"
+            Add-Log "  3. Close Windows Explorer preview handlers"
+        }
+    }
+
     exit 1
 }
 
@@ -312,19 +516,20 @@ if (-not (Test-Path $outputExe)) {
 
 if (Test-Path $manifestPath) {
     if ($mtPath) {
-        if (-not $Quiet) {
-            Write-Host "Embedding manifest..."
-        }
+        Add-Log "Embedding manifest..."
         $mtOutput = & $mtPath -manifest $manifestPath -outputresource:"$outputExe;#1" 2>&1
-        if ($LASTEXITCODE -eq 0) {
-            if (-not $Quiet) {
-                Write-Host "Manifest embedded successfully."
-            }
-        } else {
-            Write-Host "WARNING: Manifest embedding failed with code $LASTEXITCODE"
+        foreach ($line in $mtOutput) {
+            Add-Log $line
         }
-    } elseif (-not $Quiet) {
-        Write-Host "WARNING: mt.exe not found, manifest not embedded."
+        if ($LASTEXITCODE -eq 0) {
+            Add-Log "Manifest embedded successfully."
+        }
+        else {
+            Add-Log "WARNING: Manifest embedding failed with code $LASTEXITCODE"
+        }
+    }
+    else {
+        Add-Log "WARNING: mt.exe not found, manifest not embedded."
     }
 }
 
@@ -332,8 +537,17 @@ if (Test-Path $manifestPath) {
 # Build Complete
 # =============================================================================
 
-Write-Host ""
-Write-Host "========================================"
-Write-Host "SUCCESS: $outputExe"
-Write-Host "========================================"
+# Save successful build log
+$logContent += ""
+$logContent += "========================================"
+$logContent += "BUILD SUCCESSFUL"
+$logContent += "Output: $outputExe"
+$logContent += "========================================"
+$logContent | Out-File -FilePath $logFile -Encoding utf8
+
+Add-Log ""
+Add-Log "========================================"
+Add-Log "SUCCESS: $outputExe"
+Add-Log "Log saved to: $logFile"
+Add-Log "========================================"
 Get-Item $outputExe | Select-Object Name, LastWriteTime, Length

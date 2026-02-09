@@ -5,7 +5,7 @@ SimpleTodo 项目的任务和 issue 列表。
 ## 编号规则
 
 - **已完成**: issues-01 ~ issues-08
-- **待处理**: issues-09 ~ issues-11
+- **待处理**: issues-09 ~ issues-11, issues-18
 
 ## Issues 列表
 
@@ -22,6 +22,8 @@ SimpleTodo 项目的任务和 issue 列表。
 | [issues-09](./issue-09.md) | 实现删除任务备份功能 | 待处理 | 中 | - |
 | [issues-10](./issue-10.md) | 实现存单任务清单功能 | 待处理 | 中 | - |
 | [issues-11](./issue-11.md) | 实现任务分类（Project）功能 | 待处理 | 中 | [issue-11.md](./issue-11.md) |
+| [issues-18](./issue-18.md) | 截止时间和P0优先级颜色显示 | 待处理 | 中 | [issue-18.md](./issue-18.md) |
+| [issues-19](./issue-19.md) | 完整国际化（中英文切换）重构 | 待处理 | 高 | [issue-19.md](./issue-19.md) |
 
 ## 新建 Issue
 
@@ -65,4 +67,4 @@ SimpleTodo 项目的任务和 issue 列表。
 
 ---
 
-最后更新: 2026-02-04 (新增 issue-11)
+最后更新: 2026-02-08 (新增 issue-19 国际化重构)

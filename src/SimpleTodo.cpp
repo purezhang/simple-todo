@@ -90,8 +90,16 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/,
             return 1;
         }
 
-        // 设置窗口默认尺寸为 400x600
-        wndMain.SetWindowPos(NULL, 0, 0, 400, 600, SWP_NOZORDER | SWP_NOMOVE);
+        // 获取 DPI 并计算默认窗口尺寸（500x600 @ 96 DPI 基准）
+        int dpi = 96;
+        HDC hdc = ::GetDC(NULL);
+        if (hdc) {
+            dpi = ::GetDeviceCaps(hdc, LOGPIXELSX);
+            ::ReleaseDC(NULL, hdc);
+        }
+        int defaultWidth = MulDiv(500, dpi, 96);
+        int defaultHeight = MulDiv(600, dpi, 96);
+        wndMain.SetWindowPos(NULL, 0, 0, defaultWidth, defaultHeight, SWP_NOZORDER | SWP_NOMOVE);
 
         wndMain.ShowWindow(nCmdShow);
 
