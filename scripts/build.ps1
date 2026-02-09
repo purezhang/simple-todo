@@ -238,13 +238,13 @@ if (!(Test-Path $outputDir)) {
 # Generate Version Header
 # =============================================================================
 
-Write-Host "Generating version header..."
-
-$versionHeaderPath = Join-Path $srcDir "version.h"
+Write-Host ""
+Add-Log "=== Version Info ==="
 
 # Get version from git
 $gitDescribe = $null
-$buildDate = Get-Date -Format "yyyy-MM-dd"
+$buildDate = Get-Date -Format "yyyyMMdd"
+$buildTime = Get-Date -Format "HHmmss"
 
 try {
     # Try to get version from git tags
@@ -257,20 +257,57 @@ catch {
     $gitDescribe = "dev"
 }
 
+# Extract short commit hash from git describe output
+$shortCommit = ""
+if ($gitDescribe -match '-g([a-f0-9]+)$') {
+    $shortCommit = $Matches[1]
+} elseif ($gitDescribe -match '^([a-f0-9]+)$') {
+    $shortCommit = $gitDescribe
+} else {
+    $shortCommit = "unknown"
+}
+
+Add-Log "  Git describe: $gitDescribe"
+Add-Log "  Short commit: $shortCommit"
+Add-Log "  Build date:   $buildDate"
+Add-Log "  Build time:   $buildTime"
+Add-Log ""
+Add-Log "=== Generating version header ==="
+
+$versionHeaderPath = Join-Path $srcDir "version.h"
+
 # Generate version.h content
-# Parse version numbers from git describe (e.g., v0.3.0-5-g8d6aeb4 -> 0, 3, 0, 5)
+# Parse version numbers from git describe (e.g., v0.5.0-1-g5159afa -> 0, 5, 0, 1)
 $vMajor = 0
 $vMinor = 0
 $vPatch = 0
 $vBuild = 0
 
-if ($gitDescribe -match '^v?(\d+)\.(\d+)\.(\d+)(?:-(\d+))?') {
+if ($gitDescribe -match '^v?(\d+)\.(\d+)\.(\d+)(?:-(\d+))?-g([a-f0-9]+)') {
     $vMajor = [int]$Matches[1]
     $vMinor = [int]$Matches[2]
     $vPatch = [int]$Matches[3]
     if ($Matches[4]) {
         $vBuild = [int]$Matches[4]
     }
+    # Short commit hash without 'g' prefix
+    $cleanVersion = "v$($Matches[1]).$($Matches[2]).$($Matches[3])-$($Matches[5])"
+} elseif ($gitDescribe -match '^v?(\d+)\.(\d+)\.(\d+)(?:-(\d+))?') {
+    $vMajor = [int]$Matches[1]
+    $vMinor = [int]$Matches[2]
+    $vPatch = [int]$Matches[3]
+    if ($Matches[4]) {
+        $vBuild = [int]$Matches[4]
+    }
+    $cleanVersion = $gitDescribe
+} else {
+    $cleanVersion = $gitDescribe
+}
+
+# Add debug suffix for debug builds
+$versionSuffix = ""
+if ($Configuration -eq "Debug") {
+    $versionSuffix = "-DEBUG"
 }
 
 $versionContent = @"
@@ -278,9 +315,9 @@ $versionContent = @"
 #pragma once
 
 // String versions
-#define APP_VERSION_STRING L"$gitDescribe"
-#define APP_BUILD_DATE L"$buildDate"
-#define APP_VERSION_FULL L"$gitDescribe (Build $buildDate)"
+#define APP_VERSION_STRING L"$cleanVersion"
+#define APP_BUILD_DATE L"$buildDate$buildTime"
+#define APP_VERSION_FULL L"$cleanVersion$versionSuffix (build $buildDate-$buildTime)"
 
 // Numeric versions for RC file
 #define APP_VERSION_MAJOR $vMajor
@@ -294,12 +331,16 @@ $versionContent = @"
 # Write to file
 $versionContent | Out-File -FilePath $versionHeaderPath -Encoding utf8 -Force
 
-Add-Log "Version: $gitDescribe (Build $buildDate)"
+Add-Log "  Version file: $versionHeaderPath"
+Add-Log "  Version string: $cleanVersion$versionSuffix"
+Add-Log "=== Version header generated ==="
+Add-Log ""
 
 # =============================================================================
 # Compile Resources
 # =============================================================================
 
+Add-Log "=== Starting compilation ==="
 Write-Host "Compiling resources... ($Configuration)"
 
 # Find latest SDK version for includes

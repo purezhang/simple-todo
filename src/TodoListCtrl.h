@@ -37,19 +37,6 @@ public:
 
     LRESULT OnCreate(UINT, WPARAM, LPARAM, BOOL& bHandled) {
         bHandled = FALSE;
-        
-        #ifdef _DEBUG
-        TCHAR szDebug[512];
-        _stprintf_s(szDebug, _T("[OnCreate] TodoListCtrl created\n"));
-        ::OutputDebugString(szDebug);
-        
-        HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-        if (hConsole != INVALID_HANDLE_VALUE) {
-            DWORD written;
-            WriteConsole(hConsole, szDebug, (DWORD)_tcslen(szDebug), &written, NULL);
-        }
-        #endif
-        
         return 0;
     }
 
@@ -71,46 +58,18 @@ public:
         m_displayToDataIndex = m_pDataManager->Search(
             m_searchKeyword, m_projectFilter, m_isDoneList, m_timeFilter);
 
-        #ifdef _DEBUG
-        TCHAR szDebug[512];
-        _stprintf_s(szDebug, _T("[RefreshList] %s list: total=%zu items\n"), 
-            m_isDoneList ? _T("Done") : _T("Todo"), m_displayToDataIndex.size());
-        ::OutputDebugString(szDebug);
-        
-        // 输出前5个索引映射
-        for (size_t i = 0; i < m_displayToDataIndex.size() && i < 5; ++i) {
-            _stprintf_s(szDebug, _T("[RefreshList] index[%zu] -> data[%d]\n"), 
-                i, m_displayToDataIndex[i]);
-            ::OutputDebugString(szDebug);
-        }
-        #endif
-
         // 设置虚拟列表项数量（问题7: 使用 0 确保滚动条正确更新）
         int itemCount = static_cast<int>(m_displayToDataIndex.size());
         SetItemCountEx(itemCount, 0);
 
-        #ifdef _DEBUG
-        _stprintf_s(szDebug, _T("[RefreshList] SetItemCountEx(%d)\n"), itemCount);
-        ::OutputDebugString(szDebug);
-        #endif
-
         // 刷新显示
         if (GetItemCount() > 0) {
-            #ifdef _DEBUG
-            _stprintf_s(szDebug, _T("[RefreshList] RedrawItems(0, %d)\n"), GetItemCount() - 1);
-            ::OutputDebugString(szDebug);
-            #endif
             RedrawItems(0, GetItemCount() - 1);
         }
         
         // 强制刷新整个控件
         Invalidate();
         UpdateWindow();
-        
-        #ifdef _DEBUG
-        _stprintf_s(szDebug, _T("[RefreshList] Invalidate and UpdateWindow called\n"));
-        ::OutputDebugString(szDebug);
-        #endif
     }
 
     // 通过显示索引获取数据项 (带边界保护)
@@ -148,26 +107,10 @@ public:
 
         int displayIndex = pDispInfo->item.iItem;
         
-        #ifdef _DEBUG
-        TCHAR szDebug[512];
-        _stprintf_s(szDebug, _T("[OnGetDispInfo] displayIndex=%d, subItem=%d, mask=0x%X\n"), 
-            displayIndex, pDispInfo->item.iSubItem, pDispInfo->item.mask);
-        ::OutputDebugString(szDebug);
-        #endif
-
         const TodoItem* pItem = GetItemByDisplayIndex(displayIndex);
         if (!pItem) {
-            #ifdef _DEBUG
-            ::OutputDebugString(_T("[OnGetDispInfo] pItem is NULL\n"));
-            #endif
             return 0;
         }
-
-        #ifdef _DEBUG
-        _stprintf_s(szDebug, _T("[OnGetDispInfo] Item found: id=%u, title='%s'\n"), 
-            pItem->id, pItem->title.c_str());
-        ::OutputDebugString(szDebug);
-        #endif
 
         if (pDispInfo->item.mask & LVIF_TEXT) {
             CString strValue;
@@ -212,26 +155,9 @@ public:
                 }
             }
 
-            #ifdef _DEBUG
-            _stprintf_s(szDebug, _T("[OnGetDispInfo] Setting text: '%s' (cchTextMax=%d)\n"), 
-                (LPCTSTR)strValue, pDispInfo->item.cchTextMax);
-            ::OutputDebugString(szDebug);
-            #endif
-
             if (pDispInfo->item.pszText && pDispInfo->item.cchTextMax > 0) {
                 wcsncpy_s(pDispInfo->item.pszText, pDispInfo->item.cchTextMax,
                     (LPCTSTR)strValue, _TRUNCATE);
-                
-                #ifdef _DEBUG
-                _stprintf_s(szDebug, _T("[OnGetDispInfo] Text copied successfully\n"));
-                ::OutputDebugString(szDebug);
-                #endif
-            } else {
-                #ifdef _DEBUG
-                _stprintf_s(szDebug, _T("[OnGetDispInfo] pszText=0x%X, cchTextMax=%d\n"), 
-                    (UINT_PTR)pDispInfo->item.pszText, pDispInfo->item.cchTextMax);
-                ::OutputDebugString(szDebug);
-                #endif
             }
         }
 

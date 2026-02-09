@@ -26,6 +26,7 @@ public:
         MESSAGE_HANDLER(WM_NOTIFY, OnNotify)
         MESSAGE_HANDLER(WM_COMMAND, OnCommand)
         MESSAGE_HANDLER(WM_APP + 100, OnAppRefresh)
+        MESSAGE_HANDLER(WM_CTLCOLORLISTBOX, OnCtlColorListBox)
 
         // 关键：添加消息反射，将通知发回给子控件处理数据和自绘
         // 虚拟列表的 LVN_GETDISPINFO、NM_CUSTOMDRAW 等需要反射回 TodoListCtrl 处理
@@ -45,6 +46,7 @@ public:
     LRESULT OnNotify(UINT, WPARAM, LPARAM, BOOL&);
     LRESULT OnCommand(UINT, WPARAM, LPARAM, BOOL&);
     LRESULT OnAppRefresh(UINT, WPARAM, LPARAM, BOOL&);
+    LRESULT OnCtlColorListBox(UINT, WPARAM, LPARAM, BOOL&);
 
     LRESULT OnTodoAdd(WORD, WORD, HWND, BOOL&);
     LRESULT OnTodoExport(WORD, WORD, HWND, BOOL&);

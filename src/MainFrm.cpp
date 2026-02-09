@@ -562,6 +562,8 @@ LRESULT CMainFrame::OnDestroy(UINT, WPARAM, LPARAM, BOOL&)
         ::SetWindowLongPtr(m_searchContainer.m_hWnd, GWLP_WNDPROC, (LONG_PTR)m_originalSearchContainerWndProc);
     }
 
+    // 发送退出消息，结束消息循环
+    ::PostQuitMessage(0);
     return 0;
 }
 
@@ -1831,6 +1833,13 @@ LRESULT CMainFrame::OnTimer(UINT, WPARAM wParam, LPARAM, BOOL&)
         UpdateLists();
     }
     return 0;
+}
+
+// ComboBox 下拉列表背景颜色处理（解决 ReBar 中 ComboBox 下拉列表显示问题）
+LRESULT CMainFrame::OnCtlColorListBox(UINT, WPARAM wParam, LPARAM, BOOL&)
+{
+    // 返回系统白色背景刷，让系统主题正确绘制
+    return (LRESULT)::GetStockObject(WHITE_BRUSH);
 }
 
 LRESULT CMainFrame::OnLanguageChinese(WORD, WORD, HWND, BOOL&)

@@ -30,7 +30,6 @@ BEGIN
     BEGIN
         BLOCK "040904b0"
         BEGIN
-            VALUE "CompanyName", "Yamu Tech"
             VALUE "FileDescription", "Simple Todo Application"
             VALUE "FileVersion", APP_VERSION_STR
             VALUE "InternalName", "SimpleTodo"
