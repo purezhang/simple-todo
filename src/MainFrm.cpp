@@ -1931,7 +1931,7 @@ LRESULT CMainFrame::OnToggleTopmost(WORD, WORD, HWND, BOOL&)
 
     TBBUTTONINFO tbbi = { sizeof(TBBUTTONINFO) };
     tbbi.dwMask = TBIF_TEXT;
-    tbbi.pszText = (LPTSTR)(m_bTopmost ? TOPMOST_TEXT_CHECKED : TOPMOST_TEXT_NORMAL);
+    tbbi.pszText = (LPTSTR)(m_bTopmost ? GetString(StringID::TbTopmostOn) : GetString(StringID::TbTopmost));
     m_toolbar.SetButtonInfo(ID_WINDOW_TOPMOST, &tbbi);
 
     DEBUG_OUTPUT(_T("[OnToggleTopmost] 调用 SetWindowPos\n"));
@@ -1954,16 +1954,16 @@ LRESULT CMainFrame::OnToggleTimeFilter(WORD, WORD, HWND, BOOL&)
     switch (m_timeFilter) {
     case TimeFilter::All:
         m_timeFilter = TimeFilter::Today;
-        pszNewFilter = TIME_FILTER_TODAY;
+        pszNewFilter = GetString(StringID::TbFilterToday);
         break;
     case TimeFilter::Today:
         m_timeFilter = TimeFilter::ThisWeek;
-        pszNewFilter = TIME_FILTER_WEEK;
+        pszNewFilter = GetString(StringID::TbFilterWeek);
         break;
     case TimeFilter::ThisWeek:
     default:
         m_timeFilter = TimeFilter::All;
-        pszNewFilter = TIME_FILTER_ALL;
+        pszNewFilter = GetString(StringID::TbFilter);
         break;
     }
 
