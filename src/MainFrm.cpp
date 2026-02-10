@@ -1142,9 +1142,9 @@ void CMainFrame::AdjustTodoListColumnWidths(int cx)
         ::ReleaseDC(NULL, hdc);
     }
 
-    int colCreateDate = MulDiv(80, dpi, 96);
+    int colCreateDate = MulDiv(82, dpi, 96);
     int colPriority = MulDiv(55, dpi, 96);
-    int colDeadline = MulDiv(120, dpi, 96);
+    int colDeadline = MulDiv(115, dpi, 96);
 
     // 计算任务描述列宽度（剩余空间）
     // 减去垂直滚动条宽度和边框，避免出现水平滚动条
@@ -1162,7 +1162,7 @@ void CMainFrame::AdjustTodoListColumnWidths(int cx)
     // Done list 列宽调整（优先级、任务描述、完成时间）
     if (m_doneList.m_hWnd) {
         int doneColPriority = MulDiv(55, dpi, 96);
-        int doneColDoneTime = MulDiv(120, dpi, 96);
+        int doneColDoneTime = MulDiv(115, dpi, 96);
         int doneColDescription = availableWidth - doneColPriority - doneColDoneTime;
         if (doneColDescription < 50) doneColDescription = 50;
 
