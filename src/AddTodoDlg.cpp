@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "AddTodoDlg.h"
+#include "MainFrm.h"  // for GetString
 
 #ifdef _DEBUG
 static void DebugTick(const TCHAR* tag)
@@ -99,17 +100,34 @@ LRESULT CAddTodoDlg::OnInitDialog(UINT, WPARAM, LPARAM, BOOL&)
     ::OutputDebugString(m_comboProject.IsWindow() ? _T("Project Combo OK\n") : _T("Project Combo FAILED\n"));
 #endif
 
+    // 动态设置对话框标题和标签（国际化）
+    if (m_item.id == 0) {
+        SetWindowText(GetString(StringID::DlgAddTodo));
+    } else {
+        SetWindowText(GetString(StringID::DlgEditTodo));
+    }
+    SetDlgItemText(IDC_LBL_TITLE, GetString(StringID::LblTitle));
+    SetDlgItemText(IDC_LBL_NOTE, GetString(StringID::LblNote));
+    SetDlgItemText(IDC_LBL_PRIORITY, GetString(StringID::LblPriority));
+    SetDlgItemText(IDC_LBL_PROJECT, GetString(StringID::LblProject));
+    SetDlgItemText(IDC_LBL_DEADLINE, GetString(StringID::LblDeadline));
+    SetDlgItemText(IDC_TODAY_BTN, GetString(StringID::BtnToday));
+    SetDlgItemText(IDC_TOMORROW_BTN, GetString(StringID::BtnTomorrow));
+    SetDlgItemText(IDC_THIS_WEEK_BTN, GetString(StringID::BtnThisWeek));
+    SetDlgItemText(IDOK, GetString(StringID::OK));
+    SetDlgItemText(IDCANCEL, GetString(StringID::Cancel));
+
     // 初始化优先级下拉框
-    m_comboPriority.AddString(_T("P0 紧急"));
-    m_comboPriority.AddString(_T("P1 重要"));
-    m_comboPriority.AddString(_T("P2 普通"));
-    m_comboPriority.AddString(_T("P3 暂缓"));
+    m_comboPriority.AddString(GetString(StringID::PriorityP0));
+    m_comboPriority.AddString(GetString(StringID::PriorityP1));
+    m_comboPriority.AddString(GetString(StringID::PriorityP2));
+    m_comboPriority.AddString(GetString(StringID::PriorityP3));
 
     // 初始化项目下拉框：只放当前项目（如果有），完整列表延迟到下拉
     ULONGLONG tProjBegin = GetTickCount64();
     m_projectsLoaded = false;
     m_comboProject.ResetContent();
-    m_comboProject.AddString(L"[无]");
+    m_comboProject.AddString(GetString(StringID::ProjectNone));
     if (!m_item.project.empty()) {
         m_comboProject.AddString(m_item.project.c_str());
         m_comboProject.SetCurSel(1);
@@ -214,7 +232,7 @@ LRESULT CAddTodoDlg::OnOK(WORD, WORD, HWND, BOOL&)
 
     // 验证标题不为空
     if (m_item.title.empty()) {
-        MessageBox(_T("请输入任务标题！"), _T("提示"), MB_OK | MB_ICONWARNING);
+        MessageBox(GetString(StringID::TitleRequired), GetString(StringID::Tips), MB_OK | MB_ICONWARNING);
         m_editTitle.SetFocus();
         return 0;
     }
@@ -364,7 +382,7 @@ void CAddTodoDlg::UpdateProjectCombo()
     m_comboProject.ResetContent();
 
     // 添加"无"选项（表示不选择任何项目）
-    m_comboProject.AddString(L"[无]");
+    m_comboProject.AddString(GetString(StringID::ProjectNone));
 
     // 添加已有项目
     for (const auto& proj : m_projects) {

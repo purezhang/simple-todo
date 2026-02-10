@@ -66,23 +66,23 @@ CAPTION "添加任务"
 FONT 9, "Microsoft YaHei UI", 400, 0, 0x1
 BEGIN
     // 标题
-    LTEXT           "标题 *",IDC_STATIC,12,10,100,12,SS_LEFT
+    LTEXT           "标题 *",IDC_LBL_TITLE,12,10,100,12,SS_LEFT
     EDITTEXT        IDC_TITLE_EDIT,12,24,356,14,ES_AUTOHSCROLL | ES_LEFT | WS_BORDER | WS_TABSTOP
 
     // 备注
-    LTEXT           "备注",IDC_STATIC,12,50,100,12,SS_LEFT
+    LTEXT           "备注",IDC_LBL_NOTE,12,50,100,12,SS_LEFT
     EDITTEXT        IDC_NOTE_EDIT,12,64,356,50,ES_MULTILINE | ES_LEFT | ES_AUTOVSCROLL | WS_BORDER | WS_TABSTOP | WS_VSCROLL
 
     // 优先级
-    LTEXT           "优先级",IDC_STATIC,12,120,50,12,SS_LEFT
+    LTEXT           "优先级",IDC_LBL_PRIORITY,12,120,50,12,SS_LEFT
     COMBOBOX        IDC_PRIORITY_COMBO,12,134,100,80,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
 
     // 项目
-    LTEXT           "项目",IDC_STATIC,130,120,50,12,SS_LEFT
+    LTEXT           "项目",IDC_LBL_PROJECT,130,120,50,12,SS_LEFT
     COMBOBOX        IDC_PROJECT_COMBO,130,134,100,80,CBS_DROPDOWN | CBS_AUTOHSCROLL | WS_VSCROLL | WS_TABSTOP
 
     // 截止时间
-    LTEXT           "截止时间",IDC_STATIC,250,120,60,12,SS_LEFT
+    LTEXT           "截止时间",IDC_LBL_DEADLINE,250,120,60,12,SS_LEFT
     CONTROL         "",IDC_END_TIME_DATETIME,"SysDateTimePick32",DTS_RIGHTALIGN | WS_TABSTOP | DTS_APPCANPARSE,250,134,118,14
 
     // 快捷日期按钮
@@ -126,7 +126,7 @@ BEGIN
     END
     POPUP "帮助(&H)"
     BEGIN
-        MENUITEM "语言(&L)",                    ID_LANGUAGE_ENGLISH
+        MENUITEM "切换为英文(&E)",                ID_LANGUAGE_ENGLISH
         MENUITEM SEPARATOR
         MENUITEM "关于(&A)...",                  ID_APP_ABOUT
     END
@@ -159,7 +159,7 @@ BEGIN
     END
     POPUP "&Help"
     BEGIN
-        MENUITEM "&Language",                 ID_LANGUAGE_CHINESE
+        MENUITEM "Switch to &Chinese",         ID_LANGUAGE_CHINESE
         MENUITEM SEPARATOR
         MENUITEM "&About...",                  ID_APP_ABOUT
     END

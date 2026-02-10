@@ -42,6 +42,13 @@
 #define IDC_KEEP_BUTTON                212
 #define IDC_DISCARD_BUTTON             213
 
+// 对话框标签控件 ID
+#define IDC_LBL_TITLE                  220
+#define IDC_LBL_NOTE                   221
+#define IDC_LBL_PRIORITY               222
+#define IDC_LBL_PROJECT                223
+#define IDC_LBL_DEADLINE               224
+
 #define ID_APP_ABOUT                   0xE140
 #define ID_APP_EXIT                    0xE141
 

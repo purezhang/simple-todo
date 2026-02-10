@@ -1,4 +1,99 @@
 #pragma once
+
+// ============================================================================
+// 国际化字符串ID枚举
+// ============================================================================
+enum class StringID {
+    // 通用
+    Tips,               // 提示
+    AboutTitle,         // 关于 Simple Todo
+    OK,                 // 确定
+    Cancel,             // 取消
+    Close,              // 关闭
+    Yes,                // 是
+    No,                 // 否
+
+    // 任务相关
+    TitleRequired,      // 请输入任务标题！
+    ClickToViewDetail,  // 点击任务查看详情
+
+    // 对话框标签
+    DlgAddTodo,         // 添加任务
+    DlgEditTodo,        // 编辑任务
+    LblTitle,           // 标题 *
+    LblNote,            // 备注
+    LblPriority,        // 优先级
+    LblProject,         // 项目
+    LblDeadline,        // 截止时间
+    BtnToday,           // 今天
+    BtnTomorrow,        // 明天
+    BtnThisWeek,        // 本周
+
+    // 优先级
+    PriorityP0,         // P0 紧急
+    PriorityP1,         // P1 重要
+    PriorityP2,         // P2 普通
+    PriorityP3,         // P3 暂缓
+
+    // 右键菜单
+    MarkAsDone,         // 标记为完成
+    MarkAsUndone,       // 标记为未完成
+    Edit,               // 编辑
+    Delete,             // 删除
+    Pin,                // 置顶
+    Unpin,              // 取消置顶
+    CopyText,           // 复制文本
+    SetPriority,        // 设置优先级
+
+    // 列标题
+    ColCreateDate,      // 创建日期
+    ColPriority,        // 优先级
+    ColDescription,     // 任务描述
+    ColDeadline,        // 截止时间
+    ColDoneTime,        // 完成时间
+
+    // 筛选器
+    FilterAll,          // 全部
+    FilterToday,        // 今天
+    FilterThisWeek,     // 本周
+    ProjectAll,         // [全部]
+    ProjectNone,        // [无]
+
+    // 工具栏
+    TbTopmost,          // 📌置顶
+    TbTopmostOn,        // 📌已顶
+    TbFilter,           // 🏷全部
+    TbFilterToday,      // 🏷今天
+    TbFilterWeek,       // 🏷本周
+    TbAdd,              // 🆕新增
+
+    // 详情面板
+    DetailPriority,     // 优先级：
+    DetailDescription,  // 任务描述：
+    DetailCreateTime,   // 创建时间：
+    DetailDeadline,     // 截止时间：
+    DetailDeadlineNone, // 截止时间：未设置
+    DetailProject,      // 分组：
+    DetailNote,         // 备注：
+    DetailNone,         // (无)
+    BtnPin,             // 固定
+    BtnUnpin,           // 取消
+
+    // 状态栏
+    StatusReady,        // 就绪
+
+    // 导出
+    ExportSuccess,      // 导出成功
+
+    COUNT               // 总数标记
+};
+
+// 获取当前语言字符串（声明）
+LPCTSTR GetString(StringID id);
+
+// 注册表常量
+static const TCHAR* REG_KEY_LANGUAGE = _T("Language");
+
 #include "stdafx.h"
 #include "TodoListCtrl.h"
 
@@ -157,6 +252,11 @@ private:
     // 窗口设置保存/加载
     void LoadWindowSettings();
     void SaveWindowSettings();
+
+    // 语言切换
+    void LoadLanguageSetting();
+    void SaveLanguageSetting();
+    void ApplyLanguage();
 
     std::wstring EscapeCSV(const std::wstring& s);
     const TodoItem* GetItemByDisplayIndex(int displayIndex, bool isDoneList) const;

@@ -70,12 +70,195 @@ static LRESULT CALLBACK SearchContainerWndProc(HWND hWnd, UINT uMsg, WPARAM wPar
     return ::DefWindowProc(hWnd, uMsg, wParam, lParam);
 }
 
-// 工具栏按钮文字
+// 工具栏按钮文字（将被 GetString 替换）
 #define TOPMOST_TEXT_NORMAL   _T("📌置顶")
 #define TOPMOST_TEXT_CHECKED  _T("📌取消")
 #define TIME_FILTER_TODAY    _T("🏷今天")
 #define TIME_FILTER_WEEK     _T("🏷本周")
 #define TIME_FILTER_ALL     _T("🏷全部")
+
+// ============================================================================
+// 国际化字符串表
+// ============================================================================
+static bool g_bChineseLanguage = true;  // 全局语言标志
+
+static const wchar_t* g_strings_chinese[] = {
+    // 通用
+    L"提示",                  // Tips
+    L"关于 Simple Todo",      // AboutTitle
+    L"确定",                  // OK
+    L"取消",                  // Cancel
+    L"关闭",                  // Close
+    L"是",                    // Yes
+    L"否",                    // No
+
+    // 任务相关
+    L"请输入任务标题！",      // TitleRequired
+    L"点击任务查看详情",      // ClickToViewDetail
+
+    // 对话框标签
+    L"添加任务",              // DlgAddTodo
+    L"编辑任务",              // DlgEditTodo
+    L"标题 *",                // LblTitle
+    L"备注",                  // LblNote
+    L"优先级",                // LblPriority
+    L"项目",                  // LblProject
+    L"截止时间",              // LblDeadline
+    L"今天",                  // BtnToday
+    L"明天",                  // BtnTomorrow
+    L"本周",                  // BtnThisWeek
+
+    // 优先级
+    L"P0 紧急",               // PriorityP0
+    L"P1 重要",               // PriorityP1
+    L"P2 普通",               // PriorityP2
+    L"P3 暂缓",               // PriorityP3
+
+    // 右键菜单
+    L"标记为完成",            // MarkAsDone
+    L"标记为未完成",          // MarkAsUndone
+    L"编辑",                  // Edit
+    L"删除",                  // Delete
+    L"置顶",                  // Pin
+    L"取消置顶",              // Unpin
+    L"复制文本",              // CopyText
+    L"设置优先级",            // SetPriority
+
+    // 列标题
+    L"创建日期",              // ColCreateDate
+    L"优先级",                // ColPriority
+    L"任务描述",              // ColDescription
+    L"截止时间",              // ColDeadline
+    L"完成时间",              // ColDoneTime
+
+    // 筛选器
+    L"全部",                  // FilterAll
+    L"今天",                  // FilterToday
+    L"本周",                  // FilterThisWeek
+    L"[全部]",                // ProjectAll
+    L"[无]",                  // ProjectNone
+
+    // 工具栏
+    L"📌置顶",                // TbTopmost
+    L"📌已顶",                // TbTopmostOn
+    L"🏷全部",                // TbFilter
+    L"🏷今天",                // TbFilterToday
+    L"🏷本周",                // TbFilterWeek
+    L"🆕新增",                // TbAdd
+
+    // 详情面板
+    L"优先级：",              // DetailPriority
+    L"任务描述：",            // DetailDescription
+    L"创建时间：",            // DetailCreateTime
+    L"截止时间：",            // DetailDeadline
+    L"截止时间：未设置",      // DetailDeadlineNone
+    L"分组：",                // DetailProject
+    L"备注：",                // DetailNote
+    L"(无)",                  // DetailNone
+    L"固定",                  // BtnPin
+    L"取消",                  // BtnUnpin
+
+    // 状态栏
+    L"就绪",                  // StatusReady
+
+    // 导出
+    L"导出成功！",            // ExportSuccess
+};
+
+static const wchar_t* g_strings_english[] = {
+    // 通用
+    L"Tips",                  // Tips
+    L"About Simple Todo",     // AboutTitle
+    L"OK",                    // OK
+    L"Cancel",                // Cancel
+    L"Close",                 // Close
+    L"Yes",                   // Yes
+    L"No",                    // No
+
+    // 任务相关
+    L"Task title is required!",    // TitleRequired
+    L"Click a task to view details", // ClickToViewDetail
+
+    // 对话框标签
+    L"Add Todo",              // DlgAddTodo
+    L"Edit Todo",             // DlgEditTodo
+    L"Title *",               // LblTitle
+    L"Note",                  // LblNote
+    L"Priority",              // LblPriority
+    L"Project",               // LblProject
+    L"Deadline",              // LblDeadline
+    L"Today",                 // BtnToday
+    L"Tomorrow",              // BtnTomorrow
+    L"This Week",             // BtnThisWeek
+
+    // 优先级
+    L"P0 Urgent",             // PriorityP0
+    L"P1 Important",          // PriorityP1
+    L"P2 Normal",             // PriorityP2
+    L"P3 Low",                // PriorityP3
+
+    // 右键菜单
+    L"Mark as Done",          // MarkAsDone
+    L"Mark as Undone",        // MarkAsUndone
+    L"Edit",                  // Edit
+    L"Delete",                // Delete
+    L"Pin to Top",            // Pin
+    L"Unpin",                 // Unpin
+    L"Copy Text",             // CopyText
+    L"Set Priority",          // SetPriority
+
+    // 列标题
+    L"Create Date",           // ColCreateDate
+    L"Priority",              // ColPriority
+    L"Description",           // ColDescription
+    L"Deadline",              // ColDeadline
+    L"Done Time",             // ColDoneTime
+
+    // 筛选器
+    L"All",                   // FilterAll
+    L"Today",                 // FilterToday
+    L"This Week",             // FilterThisWeek
+    L"[All]",                 // ProjectAll
+    L"[None]",                // ProjectNone
+
+    // 工具栏
+    L"📌Pin",                 // TbTopmost
+    L"📌Pinned",              // TbTopmostOn
+    L"🏷All",                 // TbFilter
+    L"🏷Today",               // TbFilterToday
+    L"🏷Week",                // TbFilterWeek
+    L"🆕Add",                 // TbAdd
+
+    // 详情面板
+    L"Priority: ",            // DetailPriority
+    L"Description: ",         // DetailDescription
+    L"Created: ",             // DetailCreateTime
+    L"Deadline: ",            // DetailDeadline
+    L"Deadline: Not set",     // DetailDeadlineNone
+    L"Project: ",             // DetailProject
+    L"Note: ",                // DetailNote
+    L"(None)",                // DetailNone
+    L"Pin",                   // BtnPin
+    L"Unpin",                 // BtnUnpin
+
+    // 状态栏
+    L"Ready",                 // StatusReady
+
+    // 导出
+    L"Export successful!",    // ExportSuccess
+};
+
+// 编译期校验数组长度
+static_assert(sizeof(g_strings_chinese) / sizeof(g_strings_chinese[0]) == (int)StringID::COUNT,
+    "Chinese string table size mismatch with StringID::COUNT");
+static_assert(sizeof(g_strings_english) / sizeof(g_strings_english[0]) == (int)StringID::COUNT,
+    "English string table size mismatch with StringID::COUNT");
+
+// 获取当前语言字符串
+LPCTSTR GetString(StringID id) {
+    const wchar_t** table = g_bChineseLanguage ? g_strings_chinese : g_strings_english;
+    return table[static_cast<int>(id)];
+}
 
 void DebugLog(const TCHAR* format, ...) {
     TCHAR buffer[1024];
@@ -192,11 +375,11 @@ LRESULT CMainFrame::OnCreate(UINT, WPARAM, LPARAM, BOOL&)
     m_toolbar.SetExtendedStyle(TBSTYLE_EX_MIXEDBUTTONS | TBSTYLE_EX_DOUBLEBUFFER);
 
     TBBUTTON buttons[] = {
-        { I_IMAGENONE, ID_WINDOW_TOPMOST, TBSTATE_ENABLED, BTNS_BUTTON | BTNS_SHOWTEXT, {0}, 0, (INT_PTR)L"📌置顶" },
+        { I_IMAGENONE, ID_WINDOW_TOPMOST, TBSTATE_ENABLED, BTNS_BUTTON | BTNS_SHOWTEXT, {0}, 0, (INT_PTR)GetString(StringID::TbTopmost) },
         { 0, 0, 0, BTNS_SEP, {0}, 0, 0 },
-        { I_IMAGENONE, ID_TIME_FILTER, TBSTATE_ENABLED, BTNS_BUTTON | BTNS_SHOWTEXT, {0}, 0, (INT_PTR)L"🏷全部" },
+        { I_IMAGENONE, ID_TIME_FILTER, TBSTATE_ENABLED, BTNS_BUTTON | BTNS_SHOWTEXT, {0}, 0, (INT_PTR)GetString(StringID::TbFilter) },
         { 0, 0, 0, BTNS_SEP, {0}, 0, 0 },
-        { I_IMAGENONE, ID_TODO_ADD, TBSTATE_ENABLED, BTNS_BUTTON | BTNS_SHOWTEXT, {0}, 0, (INT_PTR)L"🆕新增" }
+        { I_IMAGENONE, ID_TODO_ADD, TBSTATE_ENABLED, BTNS_BUTTON | BTNS_SHOWTEXT, {0}, 0, (INT_PTR)GetString(StringID::TbAdd) }
     };
     m_toolbar.AddButtons(5, buttons);
 
@@ -337,7 +520,7 @@ LRESULT CMainFrame::OnCreate(UINT, WPARAM, LPARAM, BOOL&)
         WS_CHILD | WS_VISIBLE | WS_BORDER | CBS_DROPDOWNLIST | CBS_AUTOHSCROLL,
         0, ID_PROJECT_FILTER);
     m_projectFilter.SetFont(m_fontList);
-    m_projectFilter.AddString(L"[全部]");
+    m_projectFilter.AddString(GetString(StringID::ProjectAll));
     m_projectFilter.SetCurSel(0);
 
     DEBUG_OUTPUT(_T("[OnCreate] ComboBox 创建完成\n"));
@@ -420,7 +603,7 @@ LRESULT CMainFrame::OnCreate(UINT, WPARAM, LPARAM, BOOL&)
     m_statusBar.SetSimple(FALSE);
     int parts[] = { 400, -1 };
     m_statusBar.SetParts(2, parts);
-    m_statusBar.SetText(0, _T("就绪"), 0);
+    m_statusBar.SetText(0, GetString(StringID::StatusReady), 0);
 
     SetupLists();
 
@@ -534,6 +717,10 @@ LRESULT CMainFrame::OnCreate(UINT, WPARAM, LPARAM, BOOL&)
 
     // 加载保存的窗口设置
     LoadWindowSettings();
+
+    // 加载语言设置
+    LoadLanguageSetting();
+    ApplyLanguage();
 
     SetTimer(IDT_FORCE_REFRESH, 200, nullptr);
     PostMessage(WM_SIZE);
@@ -838,11 +1025,10 @@ LRESULT CMainFrame::OnCommand(UINT /*uMsg*/, WPARAM wParam, LPARAM lParam, BOOL&
     case IDC_KEEP_BUTTON:
         // 切换固定状态
         m_bDetailPinned = !m_bDetailPinned;
-        DEBUG_OUTPUT(m_bDetailPinned ? _T("[Keep] m_bDetailPinned=true (固定)\n") : _T("[Keep] m_bDetailPinned=false (取消)\n"));
         if (m_bDetailPinned) {
-            m_btnKeep.SetWindowText(_T("取消"));
+            m_btnKeep.SetWindowText(GetString(StringID::BtnUnpin));
         } else {
-            m_btnKeep.SetWindowText(_T("固定"));
+            m_btnKeep.SetWindowText(GetString(StringID::BtnPin));
         }
         return 0;
     default:
@@ -877,17 +1063,17 @@ void CMainFrame::SetupLists()
     m_todoList.SetExtendedListViewStyle(LVS_EX_DOUBLEBUFFER |
         LVS_EX_FULLROWSELECT | LVS_EX_INFOTIP | LVS_EX_GRIDLINES);
 
-    m_todoList.InsertColumn(0, L"创建日期", LVCFMT_LEFT, MulDiv(75, dpi, 96));
-    m_todoList.InsertColumn(1, L"优先级", LVCFMT_CENTER, MulDiv(50, dpi, 96));
-    m_todoList.InsertColumn(2, L"任务描述", LVCFMT_LEFT, MulDiv(250, dpi, 96));
-    m_todoList.InsertColumn(3, L"截止时间", LVCFMT_CENTER, MulDiv(120, dpi, 96));
+    m_todoList.InsertColumn(0, GetString(StringID::ColCreateDate), LVCFMT_LEFT, MulDiv(75, dpi, 96));
+    m_todoList.InsertColumn(1, GetString(StringID::ColPriority), LVCFMT_CENTER, MulDiv(50, dpi, 96));
+    m_todoList.InsertColumn(2, GetString(StringID::ColDescription), LVCFMT_LEFT, MulDiv(250, dpi, 96));
+    m_todoList.InsertColumn(3, GetString(StringID::ColDeadline), LVCFMT_CENTER, MulDiv(120, dpi, 96));
 
     m_doneList.SetExtendedListViewStyle(LVS_EX_DOUBLEBUFFER |
         LVS_EX_FULLROWSELECT | LVS_EX_INFOTIP | LVS_EX_GRIDLINES);
 
-    m_doneList.InsertColumn(0, L"优先级", LVCFMT_CENTER, MulDiv(50, dpi, 96));
-    m_doneList.InsertColumn(1, L"任务描述", LVCFMT_LEFT, MulDiv(380, dpi, 96));
-    m_doneList.InsertColumn(2, L"完成时间", LVCFMT_CENTER, MulDiv(120, dpi, 96));
+    m_doneList.InsertColumn(0, GetString(StringID::ColPriority), LVCFMT_CENTER, MulDiv(50, dpi, 96));
+    m_doneList.InsertColumn(1, GetString(StringID::ColDescription), LVCFMT_LEFT, MulDiv(380, dpi, 96));
+    m_doneList.InsertColumn(2, GetString(StringID::ColDoneTime), LVCFMT_CENTER, MulDiv(120, dpi, 96));
 }
 
 void CMainFrame::UpdateLists()
@@ -906,9 +1092,9 @@ void CMainFrame::UpdateLists()
     // 记录筛选条件
     LPCTSTR pszTimeFilter = nullptr;
     switch (m_timeFilter) {
-    case TimeFilter::Today: pszTimeFilter = L"今天"; break;
-    case TimeFilter::ThisWeek: pszTimeFilter = L"本周"; break;
-    default: pszTimeFilter = L"全部"; break;
+    case TimeFilter::Today: pszTimeFilter = GetString(StringID::FilterToday); break;
+    case TimeFilter::ThisWeek: pszTimeFilter = GetString(StringID::FilterThisWeek); break;
+    default: pszTimeFilter = GetString(StringID::FilterAll); break;
     }
 
     if (!m_searchKeyword.IsEmpty()) {
@@ -1033,7 +1219,7 @@ void CMainFrame::CreateDetailPanelControls()
     m_btnClose.SetFont(hNormalFont);
 
     // 创建固定/取消按钮（右下角）
-    m_btnKeep.Create(m_detailPanel, rcDefault, _T("取消"),
+    m_btnKeep.Create(m_detailPanel, rcDefault, GetString(StringID::BtnPin),
         WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
         0, IDC_KEEP_BUTTON);
     m_btnKeep.SetFont(hNormalFont);
@@ -1156,9 +1342,9 @@ void CMainFrame::UpdateDetailPanel(int index, bool isDoneList)
 
     // 更新固定按钮文字
     if (m_bDetailPinned) {
-        m_btnKeep.SetWindowText(_T("取消"));
+        m_btnKeep.SetWindowText(GetString(StringID::BtnUnpin));
     } else {
-        m_btnKeep.SetWindowText(_T("固定"));
+        m_btnKeep.SetWindowText(GetString(StringID::BtnPin));
     }
 
     m_detailEmpty.MoveWindow(0, 0, rcPanel.right - rcPanel.left, rcPanel.bottom - rcPanel.top);
@@ -1508,30 +1694,30 @@ void CMainFrame::ShowContextMenu(int index, bool isDoneList, POINT pt)
     menu.CreatePopupMenu();
 
     if (!isDoneList) {
-        menu.AppendMenu(MF_STRING, ID_CONTEXT_MARK_DONE, L"标记为完成");
-        menu.AppendMenu(MF_STRING, ID_CONTEXT_EDIT, L"编辑");
-        
+        menu.AppendMenu(MF_STRING, ID_CONTEXT_MARK_DONE, (LPCTSTR)GetString(StringID::MarkAsDone));
+        menu.AppendMenu(MF_STRING, ID_CONTEXT_EDIT, (LPCTSTR)GetString(StringID::Edit));
+
         const TodoItem* pItem = GetItemByDisplayIndex(index, isDoneList);
         if (pItem) {
             if (pItem->isPinned) {
-                menu.AppendMenu(MF_STRING, ID_CONTEXT_PIN, L"取消置顶");
+                menu.AppendMenu(MF_STRING, ID_CONTEXT_PIN, (LPCTSTR)GetString(StringID::Unpin));
             } else {
-                menu.AppendMenu(MF_STRING, ID_CONTEXT_PIN, L"置顶");
+                menu.AppendMenu(MF_STRING, ID_CONTEXT_PIN, (LPCTSTR)GetString(StringID::Pin));
             }
         }
     }
-    menu.AppendMenu(MF_STRING, ID_CONTEXT_COPY_TEXT, L"复制文本");
+    menu.AppendMenu(MF_STRING, ID_CONTEXT_COPY_TEXT, (LPCTSTR)GetString(StringID::CopyText));
 
     CMenu menuPriority;
     menuPriority.CreatePopupMenu();
-    menuPriority.AppendMenu(MF_STRING, ID_CONTEXT_PRIORITY_P0, L"P0 紧急");
-    menuPriority.AppendMenu(MF_STRING, ID_CONTEXT_PRIORITY_P1, L"P1 重要");
-    menuPriority.AppendMenu(MF_STRING, ID_CONTEXT_PRIORITY_P2, L"P2 普通");
-    menuPriority.AppendMenu(MF_STRING, ID_CONTEXT_PRIORITY_P3, L"P3 暂缓");
+    menuPriority.AppendMenu(MF_STRING, ID_CONTEXT_PRIORITY_P0, (LPCTSTR)GetString(StringID::PriorityP0));
+    menuPriority.AppendMenu(MF_STRING, ID_CONTEXT_PRIORITY_P1, (LPCTSTR)GetString(StringID::PriorityP1));
+    menuPriority.AppendMenu(MF_STRING, ID_CONTEXT_PRIORITY_P2, (LPCTSTR)GetString(StringID::PriorityP2));
+    menuPriority.AppendMenu(MF_STRING, ID_CONTEXT_PRIORITY_P3, (LPCTSTR)GetString(StringID::PriorityP3));
 
-    menu.AppendMenu(MF_POPUP, (UINT_PTR)menuPriority.m_hMenu, L"优先级");
+    menu.AppendMenu(MF_POPUP, (UINT_PTR)menuPriority.m_hMenu, (LPCTSTR)GetString(StringID::SetPriority));
     menu.AppendMenu(MF_SEPARATOR);
-    menu.AppendMenu(MF_STRING, ID_TODO_DELETE, L"删除");
+    menu.AppendMenu(MF_STRING, ID_TODO_DELETE, (LPCTSTR)GetString(StringID::Delete));
 
     menu.TrackPopupMenu(TPM_LEFTALIGN | TPM_LEFTBUTTON | TPM_RIGHTBUTTON,
         pt.x, pt.y, m_hWnd);
@@ -1844,13 +2030,23 @@ LRESULT CMainFrame::OnCtlColorListBox(UINT, WPARAM wParam, LPARAM, BOOL&)
 
 LRESULT CMainFrame::OnLanguageChinese(WORD, WORD, HWND, BOOL&)
 {
-    m_bChineseLanguage = true;
+    if (!m_bChineseLanguage) {
+        m_bChineseLanguage = true;
+        g_bChineseLanguage = true;
+        SaveLanguageSetting();
+        ApplyLanguage();
+    }
     return 0;
 }
 
 LRESULT CMainFrame::OnLanguageEnglish(WORD, WORD, HWND, BOOL&)
 {
-    m_bChineseLanguage = false;
+    if (m_bChineseLanguage) {
+        m_bChineseLanguage = false;
+        g_bChineseLanguage = false;
+        SaveLanguageSetting();
+        ApplyLanguage();
+    }
     return 0;
 }
 
@@ -1878,22 +2074,23 @@ void CMainFrame::UpdateProjectFilterList()
 
     // 清空并重新填充
     m_projectFilter.ResetContent();
-    m_projectFilter.AddString(L"[全部]");
+    m_projectFilter.AddString(GetString(StringID::ProjectAll));
 
     for (const auto& proj : projects) {
         m_projectFilter.AddString(proj.c_str());
     }
 
     // 恢复选中状态或默认选中"全部"
+    CString allText = GetString(StringID::ProjectAll);
     if (!currentText.IsEmpty()) {
         int found = m_projectFilter.FindStringExact(-1, currentText);
         if (found >= 0) {
             m_projectFilter.SetCurSel(found);
         } else {
-            m_projectFilter.SetCurSel(0);
+            m_projectFilter.SetCurSel(0);  // 选中"全部"
         }
     } else {
-        m_projectFilter.SetCurSel(0);
+        m_projectFilter.SetCurSel(0);  // 默认选中"全部"
     }
 }
 
@@ -1907,7 +2104,8 @@ LRESULT CMainFrame::OnProjectFilterChanged(WORD, WORD, HWND, BOOL&)
     _stprintf_s(szDebug, _T("=== OnProjectFilterChanged START === selText='%s'\n"), (LPCTSTR)selText);
     DEBUG_OUTPUT(szDebug);
 
-    if (selText.IsEmpty() || selText == L"[全部]") {
+    CString allText = GetString(StringID::ProjectAll);
+    if (selText.IsEmpty() || selText == allText) {
         m_currentProjectFilter.clear();
         _stprintf_s(szDebug, _T("OnProjectFilterChanged: 选中[全部], filter='%s'\n"),
             m_currentProjectFilter.c_str());
@@ -2022,6 +2220,140 @@ void CMainFrame::SaveWindowSettings()
         RegSetValueEx(hKey, _T("SplitterPos"), 0, REG_SZ, (LPBYTE)szSplitter, (DWORD)(_tcslen(szSplitter) + 1) * sizeof(TCHAR));
 
         RegCloseKey(hKey);
+    }
+}
+
+void CMainFrame::LoadLanguageSetting()
+{
+    HKEY hKey;
+    TCHAR szValue[32] = {0};
+
+    if (RegOpenKeyEx(HKEY_CURRENT_USER, REG_KEY_PATH, 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+        DWORD dwSize = sizeof(szValue);
+        DWORD dwType = REG_SZ;
+
+        if (RegQueryValueEx(hKey, REG_KEY_LANGUAGE, NULL, &dwType, (LPBYTE)szValue, &dwSize) == ERROR_SUCCESS) {
+            m_bChineseLanguage = (_tcscmp(szValue, _T("English")) != 0);
+        } else {
+            m_bChineseLanguage = true;
+        }
+        RegCloseKey(hKey);
+    } else {
+        m_bChineseLanguage = true;
+    }
+
+    g_bChineseLanguage = m_bChineseLanguage;
+}
+
+void CMainFrame::SaveLanguageSetting()
+{
+    HKEY hKey;
+    DWORD dwDisposition;
+
+    if (RegCreateKeyEx(HKEY_CURRENT_USER, REG_KEY_PATH, 0, NULL, 0, KEY_WRITE, NULL, &hKey, &dwDisposition) == ERROR_SUCCESS) {
+        LPCTSTR pLanguage = m_bChineseLanguage ? _T("Chinese") : _T("English");
+        RegSetValueEx(hKey, REG_KEY_LANGUAGE, 0, REG_SZ,
+            (LPBYTE)pLanguage, (DWORD)(_tcslen(pLanguage) + 1) * sizeof(TCHAR));
+        RegCloseKey(hKey);
+    }
+}
+
+void CMainFrame::ApplyLanguage()
+{
+    // 1. 切换菜单
+    HMENU hMenu = ::LoadMenu(_Module.GetModuleInstance(),
+        MAKEINTRESOURCE(m_bChineseLanguage ? IDR_MAINFRAME : IDR_MAINFRAME_EN));
+    if (hMenu) {
+        HMENU hOldMenu = ::GetMenu(m_hWnd);
+        ::SetMenu(m_hWnd, hMenu);
+        ::DrawMenuBar(m_hWnd);
+        if (hOldMenu) {
+            ::DestroyMenu(hOldMenu);
+        }
+    }
+
+    // 2. 刷新列表列标题
+    if (m_todoList.IsWindow()) {
+        LVCOLUMN lvc = {0};
+        lvc.mask = LVCF_TEXT;
+
+        lvc.pszText = (LPTSTR)GetString(StringID::ColCreateDate);
+        m_todoList.SetColumn(0, &lvc);
+        lvc.pszText = (LPTSTR)GetString(StringID::ColPriority);
+        m_todoList.SetColumn(1, &lvc);
+        lvc.pszText = (LPTSTR)GetString(StringID::ColDescription);
+        m_todoList.SetColumn(2, &lvc);
+        lvc.pszText = (LPTSTR)GetString(StringID::ColDeadline);
+        m_todoList.SetColumn(3, &lvc);
+    }
+
+    if (m_doneList.IsWindow()) {
+        LVCOLUMN lvc = {0};
+        lvc.mask = LVCF_TEXT;
+
+        lvc.pszText = (LPTSTR)GetString(StringID::ColPriority);
+        m_doneList.SetColumn(0, &lvc);
+        lvc.pszText = (LPTSTR)GetString(StringID::ColDescription);
+        m_doneList.SetColumn(1, &lvc);
+        lvc.pszText = (LPTSTR)GetString(StringID::ColDoneTime);
+        m_doneList.SetColumn(2, &lvc);
+    }
+
+    // 3. 刷新详情面板空状态文字
+    if (m_detailEmpty.IsWindow()) {
+        m_detailEmpty.SetWindowText(GetString(StringID::ClickToViewDetail));
+    }
+
+    // 4. 刷新工具栏按钮文字
+    if (m_toolbar.IsWindow()) {
+        TBBUTTONINFO tbi = {0};
+        tbi.cbSize = sizeof(tbi);
+        tbi.dwMask = TBIF_TEXT;
+
+        // 置顶按钮
+        tbi.pszText = (LPTSTR)(m_bTopmost ? GetString(StringID::TbTopmostOn) : GetString(StringID::TbTopmost));
+        m_toolbar.SetButtonInfo(ID_WINDOW_TOPMOST, &tbi);
+
+        // 时间筛选按钮
+        switch (m_timeFilter) {
+        case TimeFilter::Today:
+            tbi.pszText = (LPTSTR)GetString(StringID::TbFilterToday);
+            break;
+        case TimeFilter::ThisWeek:
+            tbi.pszText = (LPTSTR)GetString(StringID::TbFilterWeek);
+            break;
+        default:
+            tbi.pszText = (LPTSTR)GetString(StringID::TbFilter);
+            break;
+        }
+        m_toolbar.SetButtonInfo(ID_TIME_FILTER, &tbi);
+
+        // 新增按钮
+        tbi.pszText = (LPTSTR)GetString(StringID::TbAdd);
+        m_toolbar.SetButtonInfo(ID_TODO_ADD, &tbi);
+    }
+
+    // 5. 刷新项目筛选下拉框第一项
+    if (m_projectFilter.IsWindow()) {
+        int curSel = m_projectFilter.GetCurSel();
+        m_projectFilter.DeleteString(0);
+        m_projectFilter.InsertString(0, GetString(StringID::ProjectAll));
+        if (curSel == 0) {
+            m_projectFilter.SetCurSel(0);
+        }
+    }
+
+    // 6. 刷新详情面板按钮
+    if (m_btnClose.IsWindow()) {
+        m_btnClose.SetWindowText(GetString(StringID::Close));
+    }
+    if (m_btnKeep.IsWindow()) {
+        m_btnKeep.SetWindowText(m_bDetailPinned ? GetString(StringID::BtnUnpin) : GetString(StringID::BtnPin));
+    }
+
+    // 7. 刷新状态栏
+    if (m_statusBar.IsWindow()) {
+        m_statusBar.SetText(0, GetString(StringID::StatusReady), 0);
     }
 }
 
