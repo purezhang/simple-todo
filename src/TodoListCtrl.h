@@ -204,13 +204,21 @@ public:
 
                 int subItem = pLVCD->iSubItem;
 
-                // 优先级列染色
-                if (subItem == TODO_COL_PRIORITY) {
+                // 判断是否需要居中绘制
+                bool bCenter = false;
+                // TodoList: 创建日期列居中
+                if (!m_isDoneList && subItem == TODO_COL_DATE) bCenter = true;
+                // DoneList: 优先级列居中
+                else if (m_isDoneList && subItem == DONE_COL_PRIORITY) bCenter = true;
+                // 截止时间、完成时间列居中
+                else if (subItem == TODO_COL_DUE || subItem == DONE_COL_TIME) bCenter = true;
+                // 优先级列染色（TodoList）
+                else if (!m_isDoneList && subItem == TODO_COL_PRIORITY) {
                     switch (pItem->priority) {
-                        case Priority::P0: pLVCD->clrText = RGB(220, 38, 38); break;  // 红
-                        case Priority::P1: pLVCD->clrText = RGB(217, 119, 6); break;  // 橙
-                        case Priority::P2: pLVCD->clrText = RGB(0, 0, 0); break;      // 黑
-                        case Priority::P3: pLVCD->clrText = RGB(107, 114, 128); break;// 灰
+                        case Priority::P0: pLVCD->clrText = RGB(220, 38, 38); break;
+                        case Priority::P1: pLVCD->clrText = RGB(217, 119, 6); break;
+                        case Priority::P2: pLVCD->clrText = RGB(0, 0, 0); break;
+                        case Priority::P3: pLVCD->clrText = RGB(107, 114, 128); break;
                         default: break;
                     }
                 }
@@ -227,11 +235,68 @@ public:
                 else if (subItem == TODO_COL_TITLE || subItem == DONE_COL_TITLE) {
                     pLVCD->clrText = RGB(0, 0, 0);
                 }
-                // 确保其他列使用黑色文本
-                else {
-                    pLVCD->clrText = RGB(0, 0, 0);
+
+                // 需要居中绘制的列，使用 DrawText 手动绘制
+                if (bCenter) {
+                    // 返回 POSTPAINT 阶段进行手动绘制
+                    return CDRF_NOTIFYPOSTPAINT;
                 }
 
+                return CDRF_DODEFAULT;
+            }
+
+            case CDDS_POSTPAINT: {
+                // 获取绘制的列和项信息
+                NMLVCUSTOMDRAW* pLVCD = reinterpret_cast<NMLVCUSTOMDRAW*>(pnmh);
+                int itemIndex = static_cast<int>(pLVCD->nmcd.dwItemSpec);
+                int subItem = pLVCD->iSubItem;
+
+                // 检查是否需要居中的列
+                bool bCenter = false;
+                if (!m_isDoneList && subItem == TODO_COL_DATE) bCenter = true;
+                else if (m_isDoneList && subItem == DONE_COL_PRIORITY) bCenter = true;
+                else if (subItem == TODO_COL_DUE || subItem == DONE_COL_TIME) bCenter = true;
+
+                if (bCenter) {
+                    const TodoItem* pItem = GetItemByDisplayIndex(itemIndex);
+                    if (!pItem) return CDRF_DODEFAULT;
+
+                    CString strValue;
+                    if (!m_isDoneList && subItem == TODO_COL_DATE) {
+                        strValue = pItem->createTime.Format(_T("%Y/%m/%d"));
+                    } else if (m_isDoneList && subItem == DONE_COL_PRIORITY) {
+                        strValue = pItem->GetPriorityString();
+                    } else if (subItem == TODO_COL_DUE) {
+                        if (pItem->targetEndTime.GetTime() > 0)
+                            strValue = pItem->GetEndTimeString();
+                        else
+                            strValue = _T("-");
+                    } else if (subItem == DONE_COL_TIME) {
+                        strValue = pItem->GetDoneTimeString();
+                    }
+
+                    if (!strValue.IsEmpty()) {
+                        HDC hdc = pLVCD->nmcd.hdc;
+                        RECT rcItem;
+                        // 获取子项区域
+                        ListView_GetSubItemRect(m_hWnd, itemIndex, subItem, LVIR_BOUNDS, &rcItem);
+
+                        // 保存原有设置
+                        int prevBkMode = ::SetBkMode(hdc, TRANSPARENT);
+                        COLORREF prevTextColor = ::GetTextColor(hdc);
+
+                        // 设置文本颜色
+                        ::SetTextColor(hdc, pLVCD->clrText);
+
+                        // 居中绘制
+                        UINT uiFlags = DT_VCENTER | DT_CENTER | DT_SINGLELINE | DT_NOPREFIX;
+                        ::DrawText(hdc, strValue, strValue.GetLength(), &rcItem, uiFlags);
+
+                        // 恢复设置
+                        ::SetBkMode(hdc, prevBkMode);
+                        ::SetTextColor(hdc, prevTextColor);
+                    }
+                }
                 return CDRF_DODEFAULT;
             }
         }

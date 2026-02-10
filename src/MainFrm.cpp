@@ -1063,7 +1063,7 @@ void CMainFrame::SetupLists()
     m_todoList.SetExtendedListViewStyle(LVS_EX_DOUBLEBUFFER |
         LVS_EX_FULLROWSELECT | LVS_EX_INFOTIP | LVS_EX_GRIDLINES);
 
-    m_todoList.InsertColumn(0, GetString(StringID::ColCreateDate), LVCFMT_LEFT, MulDiv(75, dpi, 96));
+    m_todoList.InsertColumn(0, GetString(StringID::ColCreateDate), LVCFMT_CENTER, MulDiv(82, dpi, 96));
     m_todoList.InsertColumn(1, GetString(StringID::ColPriority), LVCFMT_CENTER, MulDiv(50, dpi, 96));
     m_todoList.InsertColumn(2, GetString(StringID::ColDescription), LVCFMT_LEFT, MulDiv(250, dpi, 96));
     m_todoList.InsertColumn(3, GetString(StringID::ColDeadline), LVCFMT_CENTER, MulDiv(120, dpi, 96));
