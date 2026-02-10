@@ -49,7 +49,7 @@ public:
     TodoDataManager* GetDataManager() const { return m_pDataManager; }
 
     // ========================================================================
-    // 虚拟列表核心：RefreshList 只用 SetItemCountEx
+    // 虚拟列表核心：RefreshList 强制重绘
     // ========================================================================
     void RefreshList() {
         if (!m_pDataManager) return;
@@ -58,17 +58,16 @@ public:
         m_displayToDataIndex = m_pDataManager->Search(
             m_searchKeyword, m_projectFilter, m_isDoneList, m_timeFilter);
 
-        // 设置虚拟列表项数量（问题7: 使用 0 确保滚动条正确更新）
+        // 设置虚拟列表项数量
         int itemCount = static_cast<int>(m_displayToDataIndex.size());
         SetItemCountEx(itemCount, 0);
 
-        // 刷新显示
-        if (GetItemCount() > 0) {
-            RedrawItems(0, GetItemCount() - 1);
-        }
-        
+        // 强制重绘：先关闭重绘，刷新后再开启
+        SetRedraw(FALSE);
+        SetRedraw(TRUE);
+
         // 强制刷新整个控件
-        Invalidate();
+        ::InvalidateRect(m_hWnd, NULL, TRUE);
         UpdateWindow();
     }
 
