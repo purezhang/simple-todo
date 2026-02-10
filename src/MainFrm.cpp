@@ -1177,43 +1177,43 @@ void CMainFrame::CreateDetailPanelControls()
     // 使用与列表一致的字体（m_fontList）
     HFONT hNormalFont = m_fontList;
 
-    m_detailEmpty.Create(m_detailPanel, rcDefault, _T("点击任务查看详情"),
+    m_detailEmpty.Create(m_detailPanel, rcDefault, GetString(StringID::ClickToViewDetail),
         WS_CHILD | ES_CENTER | ES_READONLY | ES_MULTILINE | ES_AUTOVSCROLL,
         WS_EX_CLIENTEDGE);
     m_detailEmpty.SetFont(hNormalFont);
 
-    m_detailPriority.Create(m_detailPanel, rcDefault, _T("优先级："),
+    m_detailPriority.Create(m_detailPanel, rcDefault, GetString(StringID::DetailPriority),
         WS_CHILD | ES_LEFT | ES_READONLY | ES_AUTOHSCROLL,
         WS_EX_CLIENTEDGE);
     m_detailPriority.SetFont(hNormalFont);
 
-    m_detailDescription.Create(m_detailPanel, rcDefault, _T("任务描述："),
+    m_detailDescription.Create(m_detailPanel, rcDefault, GetString(StringID::DetailDescription),
         WS_CHILD | ES_LEFT | ES_READONLY | ES_AUTOHSCROLL,
         WS_EX_CLIENTEDGE);
     m_detailDescription.SetFont(hNormalFont);
 
-    m_detailCreateTime.Create(m_detailPanel, rcDefault, _T("创建时间："),
+    m_detailCreateTime.Create(m_detailPanel, rcDefault, GetString(StringID::DetailCreateTime),
         WS_CHILD | ES_LEFT | ES_READONLY | ES_AUTOHSCROLL,
         WS_EX_CLIENTEDGE);
     m_detailCreateTime.SetFont(hNormalFont);
 
-    m_detailEndTime.Create(m_detailPanel, rcDefault, _T("截止时间："),
+    m_detailEndTime.Create(m_detailPanel, rcDefault, GetString(StringID::DetailDeadline),
         WS_CHILD | ES_LEFT | ES_READONLY | ES_AUTOHSCROLL,
         WS_EX_CLIENTEDGE);
     m_detailEndTime.SetFont(hNormalFont);
 
-    m_detailProject.Create(m_detailPanel, rcDefault, _T("分组："),
+    m_detailProject.Create(m_detailPanel, rcDefault, GetString(StringID::DetailProject),
         WS_CHILD | ES_LEFT | ES_READONLY | ES_AUTOHSCROLL,
         WS_EX_CLIENTEDGE);
     m_detailProject.SetFont(hNormalFont);
 
-    m_detailNote.Create(m_detailPanel, rcDefault, _T("备注："),
+    m_detailNote.Create(m_detailPanel, rcDefault, GetString(StringID::DetailNote),
         WS_CHILD | ES_LEFT | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL | ES_WANTRETURN,
         WS_EX_CLIENTEDGE);
     m_detailNote.SetFont(hNormalFont);
 
     // 创建关闭按钮（右下角）
-    m_btnClose.Create(m_detailPanel, rcDefault, _T("关闭"),
+    m_btnClose.Create(m_detailPanel, rcDefault, GetString(StringID::Close),
         WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
         0, IDC_CLOSE_BUTTON);
     m_btnClose.SetFont(hNormalFont);
@@ -1261,26 +1261,28 @@ void CMainFrame::UpdateDetailPanel(int index, bool isDoneList)
 
     CString strText;
 
-    strText.Format(_T("优先级：%s"), pItem->GetPriorityString());
+    strText.Format(_T("%s%s"), GetString(StringID::DetailPriority), pItem->GetPriorityString());
     m_detailPriority.SetWindowText(strText);
 
-    strText.Format(_T("任务描述：%s"), pItem->title.c_str());
+    strText.Format(_T("%s%s"), GetString(StringID::DetailDescription), pItem->title.c_str());
     m_detailDescription.SetWindowText(strText);
 
-    strText.Format(_T("创建时间：%s"), pItem->GetCreateTimeString());
+    strText.Format(_T("%s%s"), GetString(StringID::DetailCreateTime), pItem->GetCreateTimeString());
     m_detailCreateTime.SetWindowText(strText);
 
     if (pItem->targetEndTime.GetTime() > 0) {
-        strText.Format(_T("截止时间：%s"), pItem->GetEndTimeString());
+        strText.Format(_T("%s%s"), GetString(StringID::DetailDeadline), pItem->GetEndTimeString());
     } else {
-        strText = _T("截止时间：未设置");
+        strText = GetString(StringID::DetailDeadlineNone);
     }
     m_detailEndTime.SetWindowText(strText);
 
-    strText.Format(_T("分组：%s"), pItem->project.empty() ? _T("(无)") : pItem->project.c_str());
+    strText.Format(_T("%s%s"), GetString(StringID::DetailProject),
+        pItem->project.empty() ? GetString(StringID::DetailNone) : pItem->project.c_str());
     m_detailProject.SetWindowText(strText);
 
-    strText.Format(_T("备注：%s"), pItem->note.empty() ? _T("(无)") : pItem->note.c_str());
+    strText.Format(_T("%s%s"), GetString(StringID::DetailNote),
+        pItem->note.empty() ? GetString(StringID::DetailNone) : pItem->note.c_str());
     m_detailNote.SetWindowText(strText);
 
     RECT rcPanel;

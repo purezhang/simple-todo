@@ -2,6 +2,10 @@
 #include "AddTodoDlg.h"
 #include "MainFrm.h"  // for GetString
 
+// 自然语言解析关键词常量
+static const wchar_t* NATURAL_KEYWORD_TODAY = L"今天";
+static const wchar_t* NATURAL_KEYWORD_TOMORROW = L"明天";
+
 #ifdef _DEBUG
 static void DebugTick(const TCHAR* tag)
 {
@@ -356,14 +360,14 @@ void CAddTodoDlg::ParseNaturalLanguage(const std::wstring& text)
 
     // 解析 "今天"、"明天"等关键词
     CTime now = CTime::GetCurrentTime();
-    if (text.find(L"今天") != std::wstring::npos) {
+    if (text.find(NATURAL_KEYWORD_TODAY) != std::wstring::npos) {
         m_item.targetEndTime = CTime(now.GetYear(), now.GetMonth(), now.GetDay(), 23, 59, 59);
         {
         SYSTEMTIME st = {0};
         TimeToSystemTime(m_item.targetEndTime, st);
         DateTime_SetSystemtime(m_dateTime, GDT_VALID, &st);
     }
-    } else if (text.find(L"明天") != std::wstring::npos) {
+    } else if (text.find(NATURAL_KEYWORD_TOMORROW) != std::wstring::npos) {
         CTime tomorrow = now + CTimeSpan(1, 0, 0, 0);
         m_item.targetEndTime = CTime(tomorrow.GetYear(), tomorrow.GetMonth(), tomorrow.GetDay(), 23, 59, 59);
         {
