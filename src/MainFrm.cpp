@@ -1546,6 +1546,22 @@ LRESULT CMainFrame::OnTodoEdit(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, 
             m_bDialogOpen = true;
             DEBUG_OUTPUT(_T("[OnTodoEdit] Before DoModal\n"));
             CAddTodoDlg dlg(*pItem);
+
+            // 传递项目列表（与 OnTodoAdd 保持一致）
+            std::set<std::wstring> projectSet;
+            for (const auto& item : m_dataManager.todoItems) {
+                if (!item.project.empty()) {
+                    projectSet.insert(item.project);
+                }
+            }
+            for (const auto& item : m_dataManager.doneItems) {
+                if (!item.project.empty()) {
+                    projectSet.insert(item.project);
+                }
+            }
+            std::vector<std::wstring> projects(projectSet.begin(), projectSet.end());
+            dlg.SetProjects(projects);
+
             dlg.SetInvokeTick(t0);
             INT_PTR nRet = dlg.DoModal();
             DEBUG_OUTPUT(_T("[OnTodoEdit] After DoModal\n"));
