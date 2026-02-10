@@ -1,0 +1,1047 @@
+# Simple Todo 项目改进计划 v2
+
+> 创建日期：2026-02-10
+> 版本：v0.6.0
+
+---
+
+## 一、事项汇总表
+
+### 1.1 文件清理类
+
+| 序号 | 事项 | 完成状态 | 验证状态 |
+|------|------|----------|----------|
+| F1 | 删除根目录 SQLite/ 目录 | 待完成 | 待验证 |
+| F2 | 删除根目录 WTL/ 目录 | 待完成 | 待验证 |
+| F3 | 删除 Backup/ 目录 | 待完成 | 待验证 |
+| F4 | 删除 SIMPLIFIED_RefreshList.cpp | 待完成 | 待验证 |
+| F5 | 删除 UpgradeLog.htm | 待完成 | 待验证 |
+| F6 | 移动 build.log 到 bin/build-log/ | 待完成 | 待验证 |
+| F7 | 删除 scripts/vc140.pdb | 待完成 | 待验证 |
+
+### 1.2 代码改进类
+
+| 序号 | 事项 | 完成状态 | 验证状态 |
+|------|------|----------|----------|
+| C1 | 国际化 CreateDetailPanelControls() 硬编码文本 | **已完成** | **已验证** |
+| C2 | 国际化 UpdateDetailPanel() 硬编码文本 | **已完成** | **已验证** |
+| C3 | 自然语言解析提取时间关键词常量 | 待完成 | 待验证 |
+| C4 | 详情面板中文本标签统一使用 GetString() | 待完成 | 待验证 |
+| C5 | 完善错误处理机制 | 待完成 | 待验证 |
+| C6 | 加强输入验证 | 待完成 | 待验证 |
+| C7 | 优化虚拟列表性能 | 待完成 | 待验证 |
+| C8 | 改进搜索和筛选算法 | 待完成 | 待验证 |
+
+### 1.3 架构优化类
+
+| 序号 | 事项 | 完成状态 | 验证状态 |
+|------|------|----------|----------|
+| A1 | 创建 src/core/ 目录存放核心逻辑文件 | 待完成 | 待验证 |
+| A2 | 创建 src/ui/ 目录存放 UI 组件文件 | 待完成 | 待验证 |
+| A3 | 移动 SQLiteManager.cpp/h 到 src/core/ | 待完成 | 待验证 |
+| A4 | 移动 TodoModel.cpp/h 到 src/core/ | 待完成 | 待验证 |
+| A5 | 移动 MainFrm.cpp/h 到 src/ui/ | 待完成 | 待验证 |
+| A6 | 移动 AddTodoDlg.cpp/h 到 src/ui/ | 待完成 | 待验证 |
+| A7 | 移动 TodoListCtrl.cpp/h 到 src/ui/ | 待完成 | 待验证 |
+| A8 | 更新 SimpleTodo.vcxproj 引用路径 | 待完成 | 待验证 |
+| A9 | 优化数据库操作 | 待完成 | 待验证 |
+
+### 1.4 功能增强类
+
+| 序号 | 事项 | 完成状态 | 验证状态 |
+|------|------|----------|----------|
+| E1 | 添加任务提醒功能 | 待完成 | 待验证 |
+| E2 | 实现任务分类和标签系统 | 待完成 | 待验证 |
+| E3 | 添加数据备份和恢复功能 | 待完成 | 待验证 |
+| E4 | 实现任务分组自定义 | 待完成 | 待验证 |
+| E5 | 添加云同步功能 | 待完成 | 待验证 |
+| E6 | 实现深色模式支持 | 待完成 | 待验证 |
+
+### 1.5 项目管理类
+
+| 序号 | 事项 | 完成状态 | 验证状态 |
+|------|------|----------|----------|
+| P1 | 添加自动化测试 | 待完成 | 待验证 |
+| P2 | 完善文档 | 待完成 | 待验证 |
+
+---
+
+## 二、具体事项说明
+
+### 2.1 文件清理类
+
+---
+
+#### F1: 删除根目录 SQLite/ 目录
+
+**做什么：**
+- 删除 `D:\MyProject\simple-todo\SQLite\` 目录
+- 该目录与 `third_party/SQLite/` 重复，造成混淆
+
+**验证步骤：**
+```powershell
+# 检查目录是否存在
+Test-Path "D:\MyProject\simple-todo\SQLite"
+
+# 执行后应返回 False
+```
+
+**验收标准：**
+- 目录不存在
+- 项目仍可正常编译运行
+- SQLite 功能正常
+
+---
+
+#### F2: 删除根目录 WTL/ 目录
+
+**做什么：**
+- 删除 `D:\MyProject\simple-todo\WTL\` 目录
+- 该目录与 `third_party/WTL/` 重复
+
+**验证步骤：**
+```powershell
+# 检查目录是否存在
+Test-Path "D:\MyProject\simple-todo\WTL"
+
+# 执行后应返回 False
+```
+
+**验收标准：**
+- 目录不存在
+- 项目仍可正常编译运行
+- WTL 相关功能正常
+
+---
+
+#### F3: 删除 Backup/ 目录
+
+**做什么：**
+- 删除 `D:\MyProject\simple-todo\Backup\` 目录
+- 包含旧的 SimpleTodo.sln 和 SimpleTodo.vcxproj 备份
+- 已过时，无保留价值
+
+**验证步骤：**
+```powershell
+# 检查目录是否存在
+Test-Path "D:\MyProject\simple-todo\Backup"
+
+# 执行后应返回 False
+```
+
+**验收标准：**
+- 目录不存在
+- 当前项目文件（根目录）完整可用
+
+---
+
+#### F4: 删除 SIMPLIFIED_RefreshList.cpp
+
+**做什么：**
+- 删除 `D:\MyProject\simple-todo\SIMPLIFIED_RefreshList.cpp`
+- 临时/草稿代码，无实际引用
+
+**验证步骤：**
+```powershell
+# 检查文件是否存在
+Test-Path "D:\MyProject\simple-todo\SIMPLIFIED_RefreshList.cpp"
+
+# 检查项目中是否有引用
+Select-String -Path "D:\MyProject\simple-todo\src\*.cpp" -Pattern "SIMPLIFIED_RefreshList"
+```
+
+**验收标准：**
+- 文件不存在
+- 编译无引用错误
+- 项目正常编译
+
+---
+
+#### F5: 删除 UpgradeLog.htm
+
+**做什么：**
+- 删除 `D:\MyProject\simple-todo\UpgradeLog.htm`
+- Visual Studio 升级日志文件，无实际价值
+
+**验证步骤：**
+```powershell
+# 检查文件是否存在
+Test-Path "D:\MyProject\simple-todo\UpgradeLog.htm"
+
+# 执行后应返回 False
+```
+
+**验收标准：**
+- 文件不存在
+- 项目正常运行
+
+---
+
+#### F6: 移动 build.log 到 bin/build-log/
+
+**做什么：**
+- 将根目录 `build.log` 移动到 `D:\MyProject\simple-todo\bin\build-log\build.log`
+- 统一构建产物位置
+
+**验证步骤：**
+```powershell
+# 检查新位置文件是否存在
+Test-Path "D:\MyProject\simple-todo\bin\build-log\build.log"
+
+# 检查旧位置文件不存在
+Test-Path "D:\MyProject\simple-todo\build.log"
+
+# 执行后旧文件 False，新文件 True
+```
+
+**验收标准：**
+- `bin/build-log/build.log` 存在
+- 根目录 `build.log` 不存在
+- `.gitignore` 已正确忽略 `bin/build-log/`
+
+---
+
+#### F7: 删除 scripts/vc140.pdb
+
+**做什么：**
+- 删除 `D:\MyProject\simple-todo\scripts\vc140.pdb`
+- VS 2015 遗留的 PDB 调试文件，与当前 VS 2022 不兼容
+
+**验证步骤：**
+```powershell
+# 检查文件是否存在
+Test-Path "D:\MyProject\simple-todo\scripts\vc140.pdb"
+
+# 执行后应返回 False
+```
+
+**验收标准：**
+- 文件不存在
+- scripts 目录仅保留 `.ps1` 脚本文件
+
+---
+
+### 2.2 代码改进类
+
+---
+
+#### C1: 国际化 CreateDetailPanelControls() 硬编码文本
+
+**做什么：**
+- 修改 `MainFrm.cpp` 中 `CreateDetailPanelControls()` 函数
+- 将硬编码的中文文本替换为 `GetString(StringID::<ID>)` 调用
+
+**需要修改的文本：**
+
+| 硬编码文本 | 应替换为 |
+|------------|----------|
+| `"优先级："` | `GetString(StringID::DetailPriority)` |
+| `"任务描述："` | `GetString(StringID::DetailDescription)` |
+| `"创建时间："` | `GetString(StringID::DetailCreateTime)` |
+| `"截止时间："` | `GetString(StringID::DetailDeadline)` |
+| `"分组："` | `GetString(StringID::DetailProject)` |
+| `"备注："` | `GetString(StringID::DetailNote)` |
+| `"(无)"` | `GetString(StringID::DetailNone)` |
+
+**验证步骤：**
+```powershell
+# 1. 搜索硬编码文本
+Select-String -Path "D:\MyProject\simple-todo\src\MainFrm.cpp" -Pattern '"优先级："'
+
+# 2. 执行后应无匹配结果
+
+# 3. 编译项目
+cd "D:\MyProject\simple-todo"
+pwsh -File scripts\build.ps1 --config Release
+
+# 4. 运行程序验证
+# - 切换中英文语言
+# - 详情面板文本正确显示
+```
+
+**验收标准：**
+- `MainFrm.cpp` 中无硬编码的中文标签文本
+- 中英文切换时详情面板文本正确切换
+- 项目正常编译
+
+---
+
+#### C2: 国际化 UpdateDetailPanel() 硬编码文本
+
+**做什么：**
+- 修改 `MainFrm.cpp` 中 `UpdateDetailPanel()` 函数
+- 将硬编码的中文格式化字符串替换为使用字符串表
+
+**需要修改的代码：**
+```cpp
+// 当前代码示例（需修改）：
+strText.Format(_T("优先级：%s"), pItem->GetPriorityString());
+
+// 应修改为：
+strText.Format(_T("%s%s"), GetString(StringID::DetailPriority), pItem->GetPriorityString());
+```
+
+**需要修改的位置：**
+| 行号范围 | 硬编码内容 | 需替换为 |
+|----------|------------|----------|
+| ~1264 | `"优先级："` | `GetString(StringID::DetailPriority)` |
+| ~1267 | `"任务描述："` | `GetString(StringID::DetailDescription)` |
+| ~1270 | `"创建时间："` | `GetString(StringID::DetailCreateTime)` |
+| ~1276 | `"截止时间：未设置"` | `GetString(StringID::DetailDeadlineNone)` |
+| ~1280 | `"(无)"` | `GetString(StringID::DetailNone)` |
+| ~1283 | `"备注："` | `GetString(StringID::DetailNote)` |
+
+**验证步骤：**
+```powershell
+# 1. 搜索硬编码文本
+Select-String -Path "D:\MyProject\simple-todo\src\MainFrm.cpp" -Pattern '"截止时间：未设置"'
+
+# 2. 执行后应无匹配结果
+
+# 3. 编译项目
+cd "D:\MyProject\simple-todo"
+pwsh -File scripts\build.ps1 --config Release
+
+# 4. 运行程序验证详情面板显示
+```
+
+**验收标准：**
+- `MainFrm.cpp` 中详情面板相关硬编码文本全部替换
+- 中英文切换时详情面板格式正确
+- 项目正常编译运行
+
+---
+
+#### C3: 自然语言解析提取时间关键词常量
+
+**做什么：**
+- 修改 `AddTodoDlg.cpp` 中 `ParseNaturalLanguage()` 函数
+- 将硬编码的时间关键词提取为常量
+
+**需要提取的常量：**
+```cpp
+// 在文件顶部或 MainFrm.h 中添加
+static const wchar_t* NATURAL_KEYWORD_TODAY = L"今天";
+static const wchar_t* NATURAL_KEYWORD_TOMORROW = L"明天";
+```
+
+**需要修改的位置：**
+```cpp
+// 当前代码：
+if (text.find(L"今天") != std::wstring::npos) { ... }
+if (text.find(L"明天") != std::wstring::npos) { ... }
+
+// 应修改为：
+if (text.find(NATURAL_KEYWORD_TODAY) != std::wstring::npos) { ... }
+if (text.find(NATURAL_KEYWORD_TOMORROW) != std::wstring::npos) { ... }
+```
+
+**验证步骤：**
+```powershell
+# 1. 编译项目
+cd "D:\MyProject\simple-todo"
+pwsh -File scripts\build.ps1 --config Release
+
+# 2. 运行程序测试自然语言解析
+# - 输入 "会议 14:30"
+# - 输入 "报告 今天"
+# - 输入 "任务 明天"
+```
+
+**验收标准：**
+- 自然语言解析功能正常工作
+- 时间识别准确
+- 项目正常编译
+
+---
+
+#### C4: 详情面板中文本标签统一使用 GetString()
+
+**做什么：**
+- 检查并确保详情面板中所有显示的文本标签都使用 `GetString()` 获取
+- 包括空状态提示文本
+
+**需要检查的位置：**
+```cpp
+// m_detailEmpty 控件的文本（CreateDetailPanelControls 中）
+// 当前为硬编码 "点击任务查看详情"
+// 应使用 GetString(StringID::ClickToViewDetail)
+```
+
+**验证步骤：**
+```powershell
+# 1. 搜索 ClickToViewDetail 使用情况
+Select-String -Path "D:\MyProject\simple-todo\src\*.cpp" -Pattern "ClickToViewDetail"
+
+# 2. 确认 ApplyLanguage() 中有设置
+# 3. 确认 CreateDetailPanelControls 中也使用 GetString
+```
+
+**验收标准：**
+- `ClickToViewDetail` 在代码中被正确使用
+- 空状态提示随语言切换而变化
+- 项目正常编译运行
+
+---
+
+#### C5: 完善错误处理机制
+
+**做什么：**
+- 在 `SQLiteManager.cpp` 中为所有数据库操作添加详细的错误处理
+- 在 `MainFrm.cpp` 中添加 try-catch 机制处理关键操作
+- 创建 `ErrorHandler.cpp` 和 `ErrorHandler.h` 文件，实现统一的错误处理
+- 为用户界面添加友好的错误提示对话框
+
+**验证步骤：**
+```powershell
+# 1. 模拟数据库连接失败
+# - 重命名或移动数据库文件
+# - 启动程序，检查是否显示友好的错误提示
+
+# 2. 测试数据操作失败情况
+# - 尝试在只读模式下修改数据
+# - 检查错误日志是否详细
+
+# 3. 验证错误处理是否能正确恢复
+# - 修复数据库问题
+# - 检查程序是否能正常继续运行
+```
+
+**验收标准：**
+- 数据库操作有详细的错误处理
+- 关键操作有 try-catch 机制
+- 用户界面显示友好的错误提示
+- 错误处理能正确恢复，不影响系统运行
+
+---
+
+#### C6: 加强输入验证
+
+**做什么：**
+- 在 `AddTodoDlg.cpp` 中添加详细的输入验证
+- 确保所有数据库操作都使用参数化查询
+- 为字符串操作添加长度检查，避免缓冲区溢出
+- 添加输入清理功能，防止恶意输入
+
+**验证步骤：**
+```powershell
+# 1. 测试输入特殊字符
+# - 输入 "任务'测试" (包含单引号)
+# - 输入 "任务"测试" (包含双引号)
+# - 输入 "任务;删除所有" (包含分号)
+# - 检查是否能正确处理
+
+# 2. 尝试 SQL 注入攻击
+# - 输入 "任务' OR 1=1 --"
+# - 验证是否能有效防止
+
+# 3. 测试输入超长字符串
+# - 输入 1000 个字符的任务标题
+# - 检查是否能正确处理
+```
+
+**验收标准：**
+- 特殊字符输入能正确处理
+- SQL 注入攻击能有效防止
+- 超长字符串输入能正确处理
+- 所有数据库操作都使用参数化查询
+
+---
+
+#### C7: 优化虚拟列表性能
+
+**做什么：**
+- 优化 `TodoListCtrl.cpp` 中的 `OnGetDispInfo` 方法，使用缓存减少数据查找
+- 改进 `OnCustomDraw` 方法，减少不必要的重绘
+- 实现任务详情的延迟加载，只在需要时获取详细信息
+- 为所有列表控件启用双缓冲，减少闪烁
+
+**验证步骤：**
+```powershell
+# 1. 测试显示大量任务时的性能
+# - 添加 1000 个任务
+# - 测试列表滚动性能，确保流畅无卡顿
+
+# 2. 检查界面是否有闪烁现象
+# - 快速滚动列表
+# - 检查界面是否有闪烁
+
+# 3. 验证任务详情加载性能
+# - 点击任务查看详情
+# - 检查详情加载是否流畅，无明显延迟
+```
+
+**验收标准：**
+- 显示 1000 个任务时列表滚动流畅无卡顿
+- 界面无闪烁现象
+- 任务详情加载流畅，无明显延迟
+- 虚拟列表性能明显提升
+
+---
+
+#### C8: 改进搜索和筛选算法
+
+**做什么：**
+- 在 `TodoDataManager.cpp` 中优化 `Search` 方法，使用更高效的搜索算法
+- 添加搜索结果缓存，提高重复搜索的响应速度
+- 实现异步搜索功能，避免搜索大量数据时界面卡顿
+- 添加搜索高亮功能，提高用户体验
+
+**验证步骤：**
+```powershell
+# 1. 测试搜索性能
+# - 添加 1000 个任务
+# - 测试搜索响应速度，确保在 100ms 内完成
+
+# 2. 验证搜索结果准确性
+# - 搜索特定关键词
+# - 检查搜索结果是否准确
+
+# 3. 测试搜索高亮功能
+# - 搜索关键词
+# - 检查搜索结果是否高亮显示
+
+# 4. 测试异步搜索
+# - 搜索大量数据
+# - 检查界面是否卡顿
+```
+
+**验收标准：**
+- 搜索 1000 个任务的响应速度少于 100ms
+- 搜索结果准确
+- 搜索结果高亮显示
+- 搜索大量数据时界面无卡顿
+
+---
+
+### 2.3 架构优化类
+
+---
+
+#### A1: 创建 src/core/ 目录
+
+**做什么：**
+- 创建 `D:\MyProject\simple-todo\src\core\` 目录
+- 用于存放核心业务逻辑文件
+
+**验证步骤：**
+```powershell
+# 检查目录是否存在
+Test-Path "D:\MyProject\simple-todo\src\core"
+
+# 目录创建后应返回 True
+```
+
+**验收标准：**
+- 目录存在
+- 可在其中创建文件
+
+---
+
+#### A2: 创建 src/ui/ 目录
+
+**做什么：**
+- 创建 `D:\MyProject\simple-todo\src\ui\` 目录
+- 用于存放 UI 组件文件
+
+**验证步骤：**
+```powershell
+# 检查目录是否存在
+Test-Path "D:\MyProject\simple-todo\src\ui"
+
+# 目录创建后应返回 True
+```
+
+**验收标准：**
+- 目录存在
+- 可在其中创建文件
+
+---
+
+#### A3-A8: 移动源文件并更新项目配置
+
+**做什么：**
+1. 移动 `SQLiteManager.cpp/h` → `src/core/`
+2. 移动 `TodoModel.cpp/h` → `src/core/`
+3. 移动 `MainFrm.cpp/h` → `src/ui/`
+4. 移动 `AddTodoDlg.cpp/h` → `src/ui/`
+5. 移动 `TodoListCtrl.cpp/h` → `src/ui/`
+6. 更新 `SimpleTodo.vcxproj` 中的文件引用路径
+
+**文件移动清单：**
+
+| 序号 | 源文件 | 目标位置 |
+|------|--------|----------|
+| A3 | `src/SQLiteManager.cpp` | `src/core/SQLiteManager.cpp` |
+| A4 | `src/SQLiteManager.h` | `src/core/SQLiteManager.h` |
+| A5 | `src/TodoModel.cpp` | `src/core/TodoModel.cpp` |
+| A6 | `src/TodoModel.h` | `src/core/TodoModel.h` |
+| A7 | `src/MainFrm.cpp` | `src/ui/MainFrm.cpp` |
+| A8 | `src/MainFrm.h` | `src/ui/MainFrm.h` |
+| A9 | `src/AddTodoDlg.cpp` | `src/ui/AddTodoDlg.cpp` |
+| A10 | `src/AddTodoDlg.h` | `src/ui/AddTodoDlg.h` |
+| A11 | `src/TodoListCtrl.cpp` | `src/ui/TodoListCtrl.cpp` |
+| A12 | `src/TodoListCtrl.h` | `src/ui/TodoListCtrl.h` |
+
+**验证步骤：**
+```powershell
+# 1. 检查文件是否存在新位置
+Test-Path "D:\MyProject\simple-todo\src\core\SQLiteManager.cpp"
+Test-Path "D:\MyProject\simple-todo\src\ui\MainFrm.cpp"
+# ... 其他文件
+
+# 2. 检查旧位置文件不存在
+Test-Path "D:\MyProject\simple-todo\src\SQLiteManager.cpp"
+
+# 3. 编译项目
+cd "D:\MyProject\simple-todo"
+pwsh -File scripts\build.ps1 --config Release
+
+# 4. 运行程序验证功能正常
+```
+
+**验收标准：**
+- 所有文件移动到正确目录
+- 项目正常编译
+- 所有功能正常运行
+- `#include` 路径正确更新
+
+**注意：** 文件移动后需要更新以下内容：
+1. `SimpleTodo.vcxproj` 中的 `<ClCompile>` 和 `<ClInclude>` 路径
+2. 文件中的 `#include` 指令（相对路径）
+3. 确保无循环依赖
+
+---
+
+#### A9: 优化数据库操作
+
+**做什么：**
+- 改进 `SQLiteManager.cpp` 中的 `SaveAll` 方法，实现增量更新
+- 为常用查询字段（如 is_done、create_time）添加数据库索引
+- 实现数据库批量操作，减少数据库连接次数
+- 使用数据库事务提高批量操作性能
+
+**验证步骤：**
+```powershell
+# 1. 测试保存大量任务时的性能
+# - 添加 1000 个任务
+# - 测试保存时间，比较改进前后的执行时间
+
+# 2. 检查数据库表结构
+# - 使用 SQLite 工具查看表结构
+# - 确认索引是否正确创建
+
+# 3. 验证增量更新是否正常工作
+# - 修改部分任务
+# - 测试保存功能
+# - 检查是否只更新了修改的任务
+```
+
+**验收标准：**
+- 保存 1000 个任务的时间减少 50% 以上
+- 数据库表结构中添加了正确的索引
+- 增量更新正常工作，不会丢失数据
+- 批量操作性能明显提升
+
+---
+
+### 2.4 功能增强类
+
+---
+
+#### E1: 添加任务提醒功能
+
+**做什么：**
+- 创建 `ReminderManager.cpp` 和 `ReminderManager.h` 文件，实现提醒功能
+- 添加系统通知支持，使用 Windows 通知中心
+- 实现提醒设置界面，允许用户配置提醒时间和方式
+- 添加提醒历史记录功能
+
+**验证步骤：**
+```powershell
+# 1. 测试任务提醒功能
+# - 创建一个 1 分钟后截止的任务
+# - 等待提醒触发
+# - 检查是否收到系统通知
+
+# 2. 测试提醒设置
+# - 修改提醒设置（如提前 10 分钟提醒）
+# - 创建任务，检查提醒是否按设置触发
+
+# 3. 测试提醒历史记录
+# - 触发多个提醒
+# - 检查提醒历史记录是否准确
+```
+
+**验收标准：**
+- 任务提醒功能正常工作
+- 系统通知能正确显示
+- 提醒设置能正确保存和应用
+- 提醒历史记录准确
+
+---
+
+#### E2: 实现任务分类和标签系统
+
+**做什么：**
+- 修改 `TodoItem` 结构，添加 `tags` 字段支持多标签
+- 创建 `CategoryManager.cpp` 和 `CategoryManager.h` 文件，实现分类和标签管理
+- 添加分类和标签编辑界面
+- 实现按分类和标签筛选任务的功能
+
+**验证步骤：**
+```powershell
+# 1. 测试分类和标签管理
+# - 创建分类和标签
+# - 编辑分类和标签
+# - 删除分类和标签
+
+# 2. 测试任务添加标签
+# - 创建任务，添加多个标签
+# - 检查任务是否正确显示标签
+
+# 3. 测试按分类和标签筛选
+# - 选择分类或标签进行筛选
+# - 检查筛选结果是否准确
+```
+
+**验收标准：**
+- 分类和标签管理功能正常
+- 任务能正确添加多个标签
+- 按分类和标签筛选功能正常，结果准确
+- 标签显示美观
+
+---
+
+#### E3: 添加数据备份和恢复功能
+
+**做什么：**
+- 创建 `BackupManager.cpp` 和 `BackupManager.h` 文件，实现备份功能
+- 添加自动备份功能，支持定时备份
+- 实现备份设置界面，允许用户配置备份频率和位置
+- 添加备份文件管理和恢复功能
+
+**验证步骤：**
+```powershell
+# 1. 测试自动备份
+# - 设置自动备份（如每小时备份）
+# - 等待备份触发
+# - 检查备份文件是否正确创建
+
+# 2. 测试手动备份和恢复
+# - 创建一些任务
+# - 执行手动备份
+# - 删除所有任务
+# - 执行恢复操作
+# - 检查任务是否正确恢复
+
+# 3. 测试备份文件管理
+# - 创建多个备份
+# - 查看备份列表
+# - 删除旧备份
+# - 检查操作是否正常
+```
+
+**验收标准：**
+- 自动备份功能正常工作
+- 手动备份和恢复功能正常，能正确恢复数据
+- 备份文件管理功能正常
+- 备份设置能正确保存和应用
+
+---
+
+#### E4: 实现任务分组自定义
+
+**做什么：**
+- 创建 `GroupManager.cpp` 和 `GroupManager.h` 文件，实现分组管理
+- 添加分组设置界面，允许用户配置分组规则（如按优先级、项目、截止时间等）
+- 实现分组拖拽功能，允许用户调整分组顺序
+- 添加分组折叠/展开功能
+
+**验证步骤：**
+```powershell
+# 1. 测试创建和管理自定义分组
+# - 创建自定义分组（如按优先级分组）
+# - 编辑分组规则
+# - 删除分组
+
+# 2. 测试任务分组
+# - 创建不同优先级的任务
+# - 检查任务是否正确按照分组规则分组
+
+# 3. 测试分组拖拽和折叠/展开
+# - 拖拽调整分组顺序
+# - 折叠/展开分组
+# - 检查操作是否正常
+```
+
+**验收标准：**
+- 自定义分组管理功能正常
+- 任务能正确按照分组规则分组
+- 分组拖拽和折叠/展开功能正常
+- 分组设置能正确保存和应用
+
+---
+
+#### E5: 添加云同步功能
+
+**做什么：**
+- 创建 `SyncManager.cpp` 和 `SyncManager.h` 文件，实现云同步功能
+- 支持 Dropbox 和 OneDrive 云存储
+- 添加同步设置界面，允许用户配置同步方式和频率
+- 实现同步状态显示和错误处理
+
+**验证步骤：**
+```powershell
+# 1. 测试云同步功能
+# - 配置云存储（如 Dropbox）
+# - 创建一些任务
+# - 执行同步操作
+# - 检查任务是否正确上传到云存储
+
+# 2. 测试多设备同步
+# - 在另一台设备上安装程序
+# - 配置相同的云存储
+# - 执行同步操作
+# - 检查任务是否正确同步到另一台设备
+
+# 3. 测试同步错误处理
+# - 断开网络连接
+# - 执行同步操作
+# - 检查错误处理是否正确
+# - 恢复网络连接，检查是否能自动重试
+```
+
+**验收标准：**
+- 云同步功能正常工作，能正确上传和下载数据
+- 多设备同步能保持数据一致
+- 同步错误处理正确，能自动重试
+- 同步设置能正确保存和应用
+
+---
+
+#### E6: 实现深色模式支持
+
+**做什么：**
+- 创建 `ThemeManager.cpp` 和 `ThemeManager.h` 文件，实现主题管理
+- 添加深色模式资源和样式
+- 实现模式切换界面，允许用户在浅色和深色模式之间切换
+- 确保所有控件在深色模式下都能正确显示
+
+**验证步骤：**
+```powershell
+# 1. 测试深色模式切换
+# - 切换到深色模式
+# - 检查界面是否正确显示深色主题
+# - 切换回浅色模式，检查是否正确显示
+
+# 2. 测试所有控件在深色模式下的显示
+# - 检查列表控件、按钮、输入框等控件
+# - 确保所有控件都能正确显示
+
+# 3. 测试主题设置保存
+# - 切换到深色模式
+# - 重启程序
+# - 检查是否保持深色模式设置
+```
+
+**验收标准：**
+- 深色模式切换功能正常
+- 所有控件在深色模式下都能正确显示
+- 主题设置能正确保存和应用
+- 深色模式美观，减少夜间使用时的眼睛疲劳
+
+---
+
+### 2.5 项目管理类
+
+---
+
+#### P1: 添加自动化测试
+
+**做什么：**
+- 创建测试目录和测试文件结构
+- 实现基本的单元测试，测试核心功能
+- 配置持续集成环境，使用 GitHub Actions 或 Azure DevOps
+- 添加测试覆盖报告生成功能
+
+**验证步骤：**
+```powershell
+# 1. 运行自动化测试
+# - 执行测试命令
+# - 检查测试是否能正确执行
+# - 检查测试通过率是否达到 90% 以上
+
+# 2. 测试测试捕获错误的能力
+# - 修改核心功能代码，引入错误
+# - 执行测试，检查是否能捕获错误
+
+# 3. 测试持续集成
+# - 提交代码到版本控制系统
+# - 检查持续集成是否能自动运行测试
+# - 检查测试结果是否正确报告
+```
+
+**验收标准：**
+- 自动化测试能正确执行，测试通过率达到 90% 以上
+- 测试能捕获代码错误
+- 持续集成能自动运行测试
+- 测试覆盖报告能正确生成
+
+---
+
+#### P2: 完善文档
+
+**做什么：**
+- 更新 `README.md`，添加详细的项目文档，包括安装指南、使用教程等
+- 为所有关键类和函数添加 Doxygen 风格的 API 文档
+- 创建 `DEVELOPMENT.md`，为新开发者提供开发指南
+- 创建 `USER_MANUAL.md`，提供详细的用户手册
+
+**验证步骤：**
+```powershell
+# 1. 检查文档完整性
+# - 查看 README.md，检查是否包含安装指南、使用教程等
+# - 查看 API 文档，检查是否覆盖所有关键类和函数
+# - 查看 DEVELOPMENT.md，检查是否提供了详细的开发指南
+# - 查看 USER_MANUAL.md，检查是否提供了详细的用户手册
+
+# 2. 测试文档准确性
+# - 按照安装指南安装程序
+# - 按照使用教程使用功能
+# - 按照开发指南搭建开发环境
+# - 检查是否能正确完成
+
+# 3. 测试文档易理解性
+# - 邀请新用户阅读文档
+# - 收集反馈，检查文档是否易于理解
+```
+
+**验收标准：**
+- 文档完整，包含所有必要的内容
+- 文档准确，按照文档操作能正确完成任务
+- 文档易于理解，新用户能快速上手
+- API 文档覆盖所有关键类和函数
+
+---
+
+## 三、完整验证检查清单
+
+完成所有改进项后，执行以下完整验证：
+
+### 3.1 文件结构验证
+
+```powershell
+# 预期结构
+D:\MyProject\simple-todo\
+├── src/
+│   ├── core/
+│   │   ├── SQLiteManager.cpp/h
+│   │   ├── TodoModel.cpp/h
+│   │   ├── ErrorHandler.cpp/h
+│   │   ├── ReminderManager.cpp/h
+│   │   ├── CategoryManager.cpp/h
+│   │   ├── BackupManager.cpp/h
+│   │   ├── SyncManager.cpp/h
+│   │   └── ThemeManager.cpp/h
+│   ├── ui/
+│   │   ├── MainFrm.cpp/h
+│   │   ├── AddTodoDlg.cpp/h
+│   │   └── TodoListCtrl.cpp/h
+│   ├── stdafx.cpp/h
+│   ├── SimpleTodo.cpp
+│   └── ...
+├── third_party/
+│   ├── SQLite/
+│   └── WTL/
+├── scripts/
+├── bin/
+│   └── build-log/
+├── docs/
+├── tests/
+└── local/
+```
+
+### 3.2 编译验证
+
+```powershell
+# Debug 编译
+pwsh -File scripts\build.ps1 --config Debug
+
+# Release 编译
+pwsh -File scripts\build.ps1 --config Release
+
+# 测试编译结果
+# - 检查是否有编译错误
+# - 检查是否有警告
+# - 检查生成的可执行文件是否存在
+```
+
+### 3.3 功能验证
+
+| 功能 | 测试方法 | 预期结果 |
+|------|----------|----------|
+| 任务添加 | Ctrl+N 或点击添加按钮 | 对话框正确显示（中英文） |
+| 任务编辑 | 双击任务 | 编辑对话框正确显示 |
+| 任务删除 | 右键选择删除或按 Delete 键 | 任务正确删除，有确认提示 |
+| 标记完成 | 点击完成按钮或按 Space 键 | 任务正确标记为完成，移到已完成列表 |
+| 语言切换 | 菜单 Language → Chinese/English | UI 文本正确切换 |
+| 详情面板 | 点击任务 | 详情面板显示正确，支持中英文 |
+| 自然语言 | 输入 "会议 14:00" | 时间正确解析 |
+| 搜索和筛选 | 输入关键词，选择筛选条件 | 搜索结果准确，筛选功能正常 |
+| 任务提醒 | 创建即将截止的任务 | 收到系统通知提醒 |
+| 分类和标签 | 创建分类和标签，添加到任务 | 分类和标签管理正常，筛选功能正常 |
+| 数据备份 | 执行备份操作 | 备份文件正确创建，恢复功能正常 |
+| 云同步 | 配置云存储，执行同步 | 任务正确同步到云存储 |
+| 深色模式 | 切换到深色模式 | 界面正确显示深色主题 |
+| 数据持久化 | 重启程序 | 数据正确保存和加载 |
+
+### 3.4 性能验证
+
+| 测试项 | 测试方法 | 预期结果 |
+|--------|----------|----------|
+| 启动时间 | 测量程序启动时间 | 启动时间少于 1 秒 |
+| 列表滚动 | 滚动包含 1000 个任务的列表 | 滚动流畅，无卡顿 |
+| 搜索速度 | 搜索包含 1000 个任务的列表 | 搜索响应时间少于 100ms |
+| 保存速度 | 保存 1000 个任务 | 保存时间少于 1 秒 |
+| 内存使用 | 运行程序，监控内存使用 | 内存使用稳定，无内存泄漏 |
+
+### 3.5 安全验证
+
+| 测试项 | 测试方法 | 预期结果 |
+|--------|----------|----------|
+| SQL 注入 | 输入 "任务' OR 1=1 --" | 能有效防止 SQL 注入 |
+| 缓冲区溢出 | 输入超长字符串 | 能正确处理，无缓冲区溢出 |
+| 输入验证 | 输入特殊字符 | 能正确处理，无异常 |
+| 数据保护 | 检查数据库文件 | 敏感数据有适当保护 |
+
+### 3.6 Git 状态检查
+
+```powershell
+# 检查 git 状态
+cd "D:\MyProject\simple-todo"
+git status
+
+# 预期输出应显示：
+# - 已删除的文件（绿色 D）
+# - 新增的文件（绿色 -> 新位置）
+# - 修改的文件（红色 M）
+# - 新添加的文件（绿色 A）
+```
+
+---
+
+## 四、执行优先级
+
+| 优先级 | 事项 | 理由 |
+|--------|------|------|
+| P0 | F1-F7（文件清理） | 低风险，立即可做 |
+| P1 | C1-C4（代码改进） | 提升国际化完整性 |
+| P2 | A1-A9（架构优化） | 长期可维护性提升 |
+| P3 | C5-C8（性能优化） | 提升用户体验 |
+| P4 | E1-E6（功能增强） | 增加新功能 |
+| P5 | P1-P2（项目管理） | 提升项目质量 |
+
+---
+
+> 计划制定完成，等待执行。
