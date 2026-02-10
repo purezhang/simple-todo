@@ -241,68 +241,32 @@ if (!(Test-Path $outputDir)) {
 Write-Host ""
 Add-Log "=== Version Info ==="
 
-# Get version from git
-$gitDescribe = $null
+# Get version from git branch
+$version = git branch --show-current
+if ([string]::IsNullOrWhiteSpace($version)) {
+    $version = "dev"
+}
 $buildDate = Get-Date -Format "yyyyMMdd"
 $buildTime = Get-Date -Format "HHmmss"
 
-try {
-    # Try to get version from git tags
-    $gitDescribe = (git describe --tags --always 2>$null)
-    if ([string]::IsNullOrWhiteSpace($gitDescribe)) {
-        $gitDescribe = "dev"
-    }
-}
-catch {
-    $gitDescribe = "dev"
-}
+# Generate clean version string: branch-yyyymmdd-hhmmss
+$cleanVersion = "$version-$buildDate-$buildTime"
 
-# Extract short commit hash from git describe output
-$shortCommit = ""
-if ($gitDescribe -match '-g([a-f0-9]+)$') {
-    $shortCommit = $Matches[1]
-} elseif ($gitDescribe -match '^([a-f0-9]+)$') {
-    $shortCommit = $gitDescribe
-} else {
-    $shortCommit = "unknown"
-}
-
-Add-Log "  Git describe: $gitDescribe"
-Add-Log "  Short commit: $shortCommit"
-Add-Log "  Build date:   $buildDate"
-Add-Log "  Build time:   $buildTime"
+Add-Log "  Git branch:  $version"
+Add-Log "  Build date:  $buildDate"
+Add-Log "  Build time:  $buildTime"
+Add-Log "  Version:     $cleanVersion"
 Add-Log ""
 Add-Log "=== Generating version header ==="
 
 $versionHeaderPath = Join-Path $srcDir "version.h"
 
 # Generate version.h content
-# Parse version numbers from git describe (e.g., v0.5.0-1-g5159afa -> 0, 5, 0, 1)
+# Numeric versions for RC file (default to 0 when using branch-based versioning)
 $vMajor = 0
 $vMinor = 0
 $vPatch = 0
 $vBuild = 0
-
-if ($gitDescribe -match '^v?(\d+)\.(\d+)\.(\d+)(?:-(\d+))?-g([a-f0-9]+)') {
-    $vMajor = [int]$Matches[1]
-    $vMinor = [int]$Matches[2]
-    $vPatch = [int]$Matches[3]
-    if ($Matches[4]) {
-        $vBuild = [int]$Matches[4]
-    }
-    # Short commit hash without 'g' prefix
-    $cleanVersion = "v$($Matches[1]).$($Matches[2]).$($Matches[3])-$($Matches[5])"
-} elseif ($gitDescribe -match '^v?(\d+)\.(\d+)\.(\d+)(?:-(\d+))?') {
-    $vMajor = [int]$Matches[1]
-    $vMinor = [int]$Matches[2]
-    $vPatch = [int]$Matches[3]
-    if ($Matches[4]) {
-        $vBuild = [int]$Matches[4]
-    }
-    $cleanVersion = $gitDescribe
-} else {
-    $cleanVersion = $gitDescribe
-}
 
 # Add debug suffix for debug builds
 $versionSuffix = ""
